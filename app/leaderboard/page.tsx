@@ -16,95 +16,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { addComment, likeComment, getComments, getScores } from "./actions"; // Importar getScores
-import { Footer } from "@/components/footer"; // Importar el componente Footer
-
-const leaderboardData = [
-  {
-    rank: 1,
-    name: "NinjaGamer",
-    game: "Fruit Ninja",
-    score: 2450,
-    avatar: "🥷",
-    date: "2024-01-20",
-  },
-  {
-    rank: 2,
-    name: "SnakeMaster",
-    game: "Snake",
-    score: 1890,
-    avatar: "🐍",
-    date: "2024-01-19",
-  },
-  {
-    rank: 3,
-    name: "FruitSlayer",
-    game: "Fruit Ninja",
-    score: 1750,
-    avatar: "🗡️",
-    date: "2024-01-18",
-  },
-  {
-    rank: 4,
-    name: "RetroKing",
-    game: "Snake",
-    score: 1650,
-    avatar: "👑",
-    date: "2024-01-17",
-  },
-  {
-    rank: 5,
-    name: "BlockBuster",
-    game: "Tetris",
-    score: 1500,
-    avatar: "🧱",
-    date: "2024-01-16",
-  },
-  {
-    rank: 6,
-    name: "PongChamp",
-    game: "Pong",
-    score: 1200,
-    avatar: "🏓",
-    date: "2024-01-15",
-  },
-  {
-    rank: 7,
-    name: "ArcadeHero",
-    game: "Snake",
-    score: 1100,
-    avatar: "🎮",
-    date: "2024-01-14",
-  },
-  {
-    rank: 8,
-    name: "FruitNinja",
-    game: "Fruit Ninja",
-    score: 980,
-    avatar: "🥋",
-    date: "2024-01-13",
-  },
-  {
-    rank: 9,
-    name: "TetrisLord",
-    game: "Tetris",
-    score: 950,
-    avatar: "🎯",
-    date: "2024-01-12",
-  },
-  {
-    rank: 10,
-    name: "ClassicGamer",
-    game: "Pong",
-    score: 800,
-    avatar: "🕹️",
-    date: "2024-01-11",
-  },
-];
+import { addComment, likeComment, getComments, getScores } from "./actions";
+import { Footer } from "@/components/footer";
 
 export default function LeaderboardPage() {
-  const [comments, setComments] = useState<any[]>([]); // Estado para los comentarios cargados
-  const [scores, setScores] = useState<any[]>([]); // Nuevo estado para las puntuaciones
+  const [comments, setComments] = useState<any[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState("");
   const [userName, setUserName] = useState("");
   const [selectedGame, setSelectedGame] = useState("Snake");
@@ -113,39 +30,57 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const fetchedComments = await getComments();
-      setComments(fetchedComments);
-      const fetchedScores = await getScores(); // Cargar puntuaciones
-      setScores(fetchedScores);
+      try {
+        const fetchedComments = await getComments();
+        setComments(fetchedComments);
+        const fetchedScores = await getScores();
+        setScores(fetchedScores);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
     };
     fetchData();
-  }, [selectedFilter]); // Re-fetch cuando se cambia el filtro
+  }, [selectedFilter]);
 
   const handleSubmitComment = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
-    event.preventDefault(); // Prevenir el envío por defecto del formulario
-    const formData = new FormData(event.currentTarget);
+    event.preventDefault();
+
+    if (!newCommentText.trim() || !userName.trim()) return;
+
+    const formData = new FormData();
     formData.append("userName", userName);
     formData.append("selectedGame", selectedGame);
     formData.append("rating", rating.toString());
     formData.append("newComment", newCommentText);
 
-    const response = await addComment(formData);
-    if (response.success) {
-      // No es necesario añadirlo al estado local, revalidatePath se encargará de recargar
-      // pero para una actualización más rápida en el cliente, puedes añadirlo si la acción devuelve el comentario completo
-      // setComments([response.comment, ...comments])
+    try {
+      const response = await addComment(formData);
+      if (response.success) {
+        // Recargar los comentarios después de agregar uno nuevo
+        const updatedComments = await getComments();
+        setComments(updatedComments);
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
     }
+
     setNewCommentText("");
     setUserName("");
     setRating(5);
   };
 
   const handleLikeComment = async (commentId: string) => {
-    const response = await likeComment(commentId);
-    if (response.success) {
-      // No es necesario actualizar el estado local, revalidatePath se encargará
+    try {
+      const response = await likeComment(commentId);
+      if (response.success) {
+        // Recargar los comentarios después de dar like
+        const updatedComments = await getComments();
+        setComments(updatedComments);
+      }
+    } catch (error) {
+      console.error("Error liking comment:", error);
     }
   };
 
@@ -179,8 +114,8 @@ export default function LeaderboardPage() {
 
   const filteredLeaderboard =
     selectedFilter === "all"
-      ? scores // Usar las puntuaciones de Supabase
-      : scores.filter((player) => player.game_name === selectedFilter); // Filtrar por game_name
+      ? scores
+      : scores.filter((player) => player.game_name === selectedFilter);
 
   const filteredComments =
     selectedFilter === "all"
@@ -242,7 +177,7 @@ export default function LeaderboardPage() {
                   {filteredLeaderboard.length > 0 ? (
                     filteredLeaderboard.map((player, index) => (
                       <div
-                        key={player.id} // Usar el ID de Supabase
+                        key={player.id}
                         className={`flex items-center justify-between p-4 rounded-lg transition-all hover:bg-white/5 ${
                           index < 3
                             ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20"
@@ -253,8 +188,7 @@ export default function LeaderboardPage() {
                           <div className='flex items-center justify-center w-10 h-10'>
                             {getRankIcon(index + 1)}
                           </div>
-                          <div className='text-2xl'>🎮</div>{" "}
-                          {/* Avatar genérico */}
+                          <div className='text-2xl'>🎮</div>
                           <div>
                             <div className='font-semibold text-white'>
                               {player.user_name}
@@ -300,23 +234,29 @@ export default function LeaderboardPage() {
                 <div className='grid grid-cols-2 gap-4'>
                   <div className='text-center'>
                     <div className='text-2xl font-bold text-green-400'>
-                      10,247
+                      {scores.length}
                     </div>
-                    <div className='text-sm text-white/60'>
-                      Jugadores Activos
-                    </div>
+                    <div className='text-sm text-white/60'>Puntuaciones</div>
                   </div>
                   <div className='text-center'>
                     <div className='text-2xl font-bold text-blue-400'>
-                      52.3M
+                      {scores
+                        .reduce((acc, score) => acc + score.score, 0)
+                        .toLocaleString()}
                     </div>
-                    <div className='text-sm text-white/60'>
-                      Partidas Jugadas
-                    </div>
+                    <div className='text-sm text-white/60'>Puntos Totales</div>
                   </div>
                   <div className='text-center'>
                     <div className='text-2xl font-bold text-purple-400'>
-                      4.8★
+                      {comments.length > 0
+                        ? (
+                            comments.reduce(
+                              (acc, comment) => acc + comment.rating,
+                              0
+                            ) / comments.length
+                          ).toFixed(1)
+                        : "0"}
+                      ★
                     </div>
                     <div className='text-sm text-white/60'>
                       Calificación Media
@@ -344,59 +284,34 @@ export default function LeaderboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className='space-y-4'>
-                <form onSubmit={handleSubmitComment}>
-                  <div className='grid grid-cols-2 gap-4 mb-4'>
+                <form onSubmit={handleSubmitComment} className='space-y-4'>
+                  <div className='grid grid-cols-2 gap-4'>
                     <Input
                       placeholder='Tu nombre'
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
                       className='bg-white/10 border-white/20 text-white placeholder:text-white/50'
-                      name='userName' // Añadir name para FormData
+                      required
                     />
                     <select
+                      aria-label='Selecciona un juego'
                       value={selectedGame}
                       onChange={(e) => setSelectedGame(e.target.value)}
-                      className='bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white focus:bg-white/20 focus:border-white/40'
-                      style={{
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                        color: "white",
-                        borderColor: "rgba(255, 255, 255, 0.2)",
-                      }}
-                      name='selectedGame' // Añadir name para FormData
+                      className='bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white focus:bg-white/20 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500'
                     >
-                      <option
-                        value='Snake'
-                        style={{ backgroundColor: "#1f2937", color: "white" }}
-                      >
-                        Snake
-                      </option>
-                      <option
-                        value='Fruit Ninja'
-                        style={{ backgroundColor: "#1f2937", color: "white" }}
-                      >
-                        Fruit Ninja
-                      </option>
-                      <option
-                        value='Tetris'
-                        style={{ backgroundColor: "#1f2937", color: "white" }}
-                      >
-                        Tetris
-                      </option>
-                      <option
-                        value='Pong'
-                        style={{ backgroundColor: "#1f2937", color: "white" }}
-                      >
-                        Pong
-                      </option>
+                      <option value='Snake'>Snake</option>
+                      <option value='Fruit Ninja'>Fruit Ninja</option>
+                      <option value='Tetris'>Tetris</option>
+                      <option value='Pong'>Pong</option>
                     </select>
                   </div>
 
-                  <div className='flex items-center space-x-2 mb-4'>
+                  <div className='flex items-center space-x-2'>
                     <span className='text-white/80'>Calificación:</span>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
-                        type='button' // Importante para que no envíe el formulario
+                        type='button'
                         onClick={() => setRating(star)}
                         className={`${
                           star <= rating ? "text-yellow-400" : "text-white/30"
@@ -405,17 +320,15 @@ export default function LeaderboardPage() {
                         <Star className='h-5 w-5 fill-current' />
                       </button>
                     ))}
-                    <input type='hidden' name='rating' value={rating} />{" "}
-                    {/* Campo oculto para el rating */}
                   </div>
 
                   <Textarea
                     placeholder='Escribe tu comentario sobre el juego...'
                     value={newCommentText}
                     onChange={(e) => setNewCommentText(e.target.value)}
-                    className='bg-white/10 border-white/20 text-white placeholder:text-white/50 mb-4'
+                    className='bg-white/10 border-white/20 text-white placeholder:text-white/50'
                     rows={3}
-                    name='newComment' // Añadir name para FormData
+                    required
                   />
 
                   <Button
@@ -451,8 +364,7 @@ export default function LeaderboardPage() {
                       >
                         <div className='flex items-start justify-between mb-2'>
                           <div className='flex items-center space-x-2'>
-                            <span className='text-xl'>🎮</span>{" "}
-                            {/* Avatar genérico */}
+                            <span className='text-xl'>🎮</span>
                             <span className='font-semibold text-white'>
                               {comment.user_name}
                             </span>
@@ -474,6 +386,7 @@ export default function LeaderboardPage() {
                             <button
                               onClick={() => handleLikeComment(comment.id)}
                               className='text-red-400 hover:text-red-300 transition-colors text-sm'
+                              aria-label={`Like comment ${comment.id} - Likes: ${comment.likes}`}
                             >
                               ❤️ {comment.likes}
                             </button>
