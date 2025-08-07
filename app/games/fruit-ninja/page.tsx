@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
-import { saveScore } from "@/app/leaderboard/actions"; // Importar saveScore
+import { saveScore } from "@/app/leaderboard/actions";
+import { ScoreModal } from "@/components/score-modal";
 
 interface FruitItem {
   id: number;
@@ -34,6 +35,7 @@ export default function FruitNinjaGame() {
   const [fruits, setFruits] = useState<FruitItem[]>([]);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isSlicing, setIsSlicing] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   const spawnFruit = useCallback(() => {
     if (!isPlaying || gameOver) return;
@@ -60,6 +62,7 @@ export default function FruitNinjaGame() {
     setGameOver(false);
     setIsPlaying(false);
     setFruits([]);
+    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
   };
 
   const updateFruits = useCallback(() => {
@@ -161,17 +164,20 @@ export default function FruitNinjaGame() {
     }
   }, [lives]);
 
-  // NUEVO: Guardar puntuación cuando el juego termina
   useEffect(() => {
-    if (gameOver && score > 0) {
-      // Solo guardar si hay puntuación
-      const userName =
-        prompt(
-          `¡Game Over! Tu puntuación: ${score}. Ingresa tu nombre para el ranking:`
-        ) || "Anónimo";
-      saveScore(userName, "Fruit Ninja", score);
+    if (gameOver) {
+      setShowScoreModal(true);
     }
-  }, [gameOver, score]);
+  }, [gameOver]);
+
+  const handleSaveScore = async (enteredUserName: string) => {
+    if (score > 0) {
+      // Solo guardar si hay puntuación
+      await saveScore(enteredUserName, "Fruit Ninja", score);
+    }
+    setShowScoreModal(false); // Cerrar modal después de guardar
+    resetGame(); // Reiniciar el juego
+  };
 
   // Canvas rendering
   useEffect(() => {
@@ -256,28 +262,6 @@ export default function FruitNinjaGame() {
                     onMouseUp={() => setIsSlicing(false)}
                     onMouseLeave={() => setIsSlicing(false)}
                   />
-
-                  {gameOver && (
-                    <div className='absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg'>
-                      <Card className='bg-red-900/90 border-red-500'>
-                        <CardContent className='p-6 text-center'>
-                          <h3 className='text-2xl font-bold text-white mb-4'>
-                            ¡Game Over!
-                          </h3>
-                          <p className='text-white/80 mb-4'>
-                            Puntuación: {score}
-                          </p>
-                          <Button
-                            onClick={resetGame}
-                            className='bg-orange-600 hover:bg-orange-700'
-                          >
-                            <RotateCcw className='h-4 w-4 mr-2' />
-                            Jugar de Nuevo
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -372,6 +356,14 @@ export default function FruitNinjaGame() {
           </div>
         </div>
       </div>
+      <ScoreModal
+        isOpen={showScoreModal}
+        onClose={resetGame}
+        score={score}
+        gameName='Fruit Ninja'
+        hasScoreToSave={score > 0}
+        onSave={handleSaveScore}
+      />
       <Footer />
     </div>
   );

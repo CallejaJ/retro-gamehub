@@ -7,6 +7,7 @@ import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
+import { ScoreModal } from "@/components/score-modal";
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
@@ -84,6 +85,7 @@ export default function TetrisGame() {
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [highScore, setHighScore] = useState(0);
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   const dropTimeRef = useRef<number>(1000);
   const lastDropTimeRef = useRef<number>(0);
@@ -295,6 +297,7 @@ export default function TetrisGame() {
     setGameOver(false);
     setIsPlaying(false);
     lastDropTimeRef.current = 0;
+    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
   };
 
   // Iniciar juego
@@ -350,17 +353,20 @@ export default function TetrisGame() {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [isPlaying, gameOver, movePiece, rotatePieceHandler]);
 
-  // Guardar puntuación cuando el juego termina
   useEffect(() => {
-    if (gameOver && score > 0) {
-      // Solo guardar si hay puntuación
-      const userName =
-        prompt(
-          `¡Game Over! Tu puntuación: ${score}. Ingresa tu nombre para el ranking:`
-        ) || "Anónimo";
-      saveScore(userName, "Tetris", score);
+    if (gameOver) {
+      setShowScoreModal(true);
     }
-  }, [gameOver, score]);
+  }, [gameOver]);
+
+  const handleSaveScore = async (enteredUserName: string) => {
+    if (score > 0) {
+      // Solo guardar si hay puntuación
+      await saveScore(enteredUserName, "Tetris", score);
+    }
+    setShowScoreModal(false); // Cerrar modal después de guardar
+    resetGame(); // Reiniciar el juego
+  };
 
   // Renderizar tablero
   const renderBoard = () => {
@@ -432,28 +438,6 @@ export default function TetrisGame() {
                       ))
                     )}
                   </div>
-
-                  {gameOver && (
-                    <div className='absolute inset-0 bg-black/50 flex items-center justify-center'>
-                      <Card className='bg-red-900/90 border-red-500'>
-                        <CardContent className='p-6 text-center'>
-                          <h3 className='text-2xl font-bold text-white mb-4'>
-                            ¡Game Over!
-                          </h3>
-                          <p className='text-white/80 mb-4'>
-                            Puntuación: {score}
-                          </p>
-                          <Button
-                            onClick={resetGame}
-                            className='bg-purple-600 hover:bg-purple-700'
-                          >
-                            <RotateCcw className='h-4 w-4 mr-2' />
-                            Jugar de Nuevo
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -560,6 +544,14 @@ export default function TetrisGame() {
           </div>
         </div>
       </div>
+      <ScoreModal
+        isOpen={showScoreModal}
+        onClose={resetGame}
+        score={score}
+        gameName='Tetris Classic'
+        hasScoreToSave={score > 0}
+        onSave={handleSaveScore}
+      />
       <Footer />
     </div>
   );

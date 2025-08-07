@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
-import { saveScore } from "@/app/leaderboard/actions"; // Importar saveScore
+import { saveScore } from "@/app/leaderboard/actions";
+import { ScoreModal } from "@/components/score-modal";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 400;
@@ -30,6 +31,7 @@ export default function PongGame() {
   });
   const [highScore, setHighScore] = useState(0);
   const keysPressed = useRef<Set<string>>(new Set());
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   const resetGame = () => {
     setGameState({
@@ -44,6 +46,7 @@ export default function PongGame() {
       gameOver: false,
       isPlaying: false,
     });
+    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
   };
 
   const updateGame = useCallback(() => {
@@ -163,20 +166,20 @@ export default function PongGame() {
     };
   }, []);
 
-  // NUEVO: Guardar puntuación cuando el juego termina
   useEffect(() => {
     if (gameState.gameOver) {
-      const finalScore = gameState.playerScore;
-      if (finalScore > 0) {
-        // Solo guardar si hay puntuación
-        const userName =
-          prompt(
-            `¡Game Over! Tu puntuación: ${finalScore}. Ingresa tu nombre para el ranking:`
-          ) || "Anónimo";
-        saveScore(userName, "Pong", finalScore);
-      }
+      setShowScoreModal(true);
     }
-  }, [gameState.gameOver, gameState.playerScore]);
+  }, [gameState.gameOver]);
+
+  const handleSaveScore = async (enteredUserName: string) => {
+    if (gameState.playerScore > 0) {
+      // Solo guardar si hay puntuación
+      await saveScore(enteredUserName, "Pong Retro", gameState.playerScore);
+    }
+    setShowScoreModal(false); // Cerrar modal después de guardar
+    resetGame(); // Reiniciar el juego
+  };
 
   // Canvas rendering
   useEffect(() => {
@@ -247,30 +250,6 @@ export default function PongGame() {
                     height={CANVAS_HEIGHT}
                     className='w-full h-auto bg-black border-2 border-white rounded-lg'
                   />
-
-                  {gameState.gameOver && (
-                    <div className='absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg'>
-                      <Card className='bg-gray-900/90 border-white/20'>
-                        <CardContent className='p-6 text-center'>
-                          <h3 className='text-2xl font-bold text-white mb-4'>
-                            {gameState.playerScore > gameState.aiScore
-                              ? "¡Ganaste!"
-                              : "¡Perdiste!"}
-                          </h3>
-                          <p className='text-white/80 mb-4'>
-                            {gameState.playerScore} - {gameState.aiScore}
-                          </p>
-                          <Button
-                            onClick={resetGame}
-                            className='bg-gray-600 hover:bg-gray-700'
-                          >
-                            <RotateCcw className='h-4 w-4 mr-2' />
-                            Jugar de Nuevo
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -354,6 +333,14 @@ export default function PongGame() {
           </div>
         </div>
       </div>
+      <ScoreModal
+        isOpen={showScoreModal}
+        onClose={resetGame}
+        score={gameState.playerScore}
+        gameName='Pong Retro'
+        hasScoreToSave={gameState.playerScore > 0}
+        onSave={handleSaveScore}
+      />
       <Footer />
     </div>
   );

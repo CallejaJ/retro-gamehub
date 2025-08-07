@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
-import { saveScore } from "@/app/leaderboard/actions"; // Importar saveScore
+import { saveScore } from "@/app/leaderboard/actions";
+import { ScoreModal } from "@/components/score-modal";
 
 type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 type Position = { x: number; y: number };
@@ -23,6 +24,7 @@ export default function SnakeGame() {
   const [score, setScore] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [highScore, setHighScore] = useState(0);
+  const [showScoreModal, setShowScoreModal] = useState(false);
 
   const generateFood = useCallback(() => {
     const newFood = {
@@ -39,6 +41,7 @@ export default function SnakeGame() {
     setGameOver(false);
     setScore(0);
     setIsPlaying(false);
+    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
   };
 
   const moveSnake = useCallback(() => {
@@ -137,17 +140,20 @@ export default function SnakeGame() {
     return () => clearInterval(gameInterval);
   }, [moveSnake]);
 
-  // NUEVO: Guardar puntuación cuando el juego termina
   useEffect(() => {
-    if (gameOver && score > 0) {
-      // Solo guardar si hay puntuación
-      const userName =
-        prompt(
-          `¡Game Over! Tu puntuación: ${score}. Ingresa tu nombre para el ranking:`
-        ) || "Anónimo";
-      saveScore(userName, "Snake", score);
+    if (gameOver) {
+      setShowScoreModal(true);
     }
-  }, [gameOver, score]);
+  }, [gameOver]);
+
+  const handleSaveScore = async (enteredUserName: string) => {
+    if (score > 0) {
+      // Solo guardar si hay puntuación
+      await saveScore(enteredUserName, "Snake", score);
+    }
+    setShowScoreModal(false); // Cerrar modal después de guardar
+    resetGame(); // Reiniciar el juego
+  };
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 p-4 flex flex-col'>
@@ -204,28 +210,6 @@ export default function SnakeGame() {
                     }
                   )}
                 </div>
-
-                {gameOver && (
-                  <div className='absolute inset-0 bg-black/50 flex items-center justify-center'>
-                    <Card className='bg-red-900/90 border-red-500'>
-                      <CardContent className='p-6 text-center'>
-                        <h3 className='text-2xl font-bold text-white mb-4'>
-                          ¡Game Over!
-                        </h3>
-                        <p className='text-white/80 mb-4'>
-                          Puntuación: {score}
-                        </p>
-                        <Button
-                          onClick={resetGame}
-                          className='bg-green-600 hover:bg-green-700'
-                        >
-                          <RotateCcw className='h-4 w-4 mr-2' />
-                          Jugar de Nuevo
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
@@ -299,6 +283,14 @@ export default function SnakeGame() {
           </div>
         </div>
       </div>
+      <ScoreModal
+        isOpen={showScoreModal}
+        onClose={resetGame} // Llama a resetGame directamente al cerrar el modal
+        score={score}
+        gameName='Snake Classic'
+        hasScoreToSave={score > 0}
+        onSave={handleSaveScore}
+      />
       <Footer />
     </div>
   );
