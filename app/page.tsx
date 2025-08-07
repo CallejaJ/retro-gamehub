@@ -68,7 +68,7 @@ export default function HomePage() {
           <div className='flex items-center justify-between'>
             <div className='flex items-center space-x-2'>
               <Gamepad2 className='h-8 w-8 text-purple-400' />
-              <h1 className='text-2xl font-bold text-white'>GameHub</h1>
+              <h1 className='text-2xl font-bold text-white'>Retro-GameHub</h1>
             </div>
             <nav className='hidden md:flex space-x-6'>
               <Link

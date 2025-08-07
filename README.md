@@ -1,6 +1,6 @@
 # 🎮 GameHub: Juegos retro en Línea
 
-¡Bienvenido a **GameHub**! Una plataforma interactiva desarrollada con Next.js que te permite disfrutar de una colección de juegos clásicos directamente en tu navegador. Sin descargas, sin instalaciones, solo diversión pura.
+¡Bienvenido a **Retro-GameHub**! Una plataforma interactiva desarrollada con Next.js que te permite disfrutar de una colección de juegos clásicos directamente en tu navegador. Sin descargas, sin instalaciones, solo diversión pura.
 
 Este proyecto está diseñado pensando en la comunidad, ofreciendo una experiencia de juego fluida y responsiva, junto con funcionalidades sociales como rankings y comentarios.
 
@@ -119,7 +119,7 @@ Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](LICENSE)
 
 ---
 
-¡Esperamos que disfrutes jugando y contribuyendo a **GameHub**! Si tienes alguna pregunta o sugerencia, no dudes en abrir un `issue`.
+¡Esperamos que disfrutes jugando y contribuyendo a **Retro -GameHub**! Si tienes alguna pregunta o sugerencia, no dudes en abrir un `issue`.
 
 ```
 
