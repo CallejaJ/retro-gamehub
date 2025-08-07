@@ -18,7 +18,7 @@ const games = [
     title: "Snake Classic",
     description:
       "El clásico juego de la serpiente. Come frutas, crece y evita chocar contigo mismo.",
-    image: "/placeholder.svg?height=200&width=300", // Imagen específica
+    image: "/snake-classic.png",
     rating: 4.8,
     players: "2.1K",
     difficulty: "Fácil",
@@ -29,7 +29,7 @@ const games = [
     title: "Fruit Ninja",
     description:
       "Corta frutas volando con tu espada ninja. ¡Evita las bombas y consigue la puntuación más alta!",
-    image: "/placeholder.svg?height=200&width=300", // Imagen específica
+    image: "/fruit-ninja.jpg",
     rating: 4.9,
     players: "3.5K",
     difficulty: "Medio",
@@ -40,7 +40,7 @@ const games = [
     title: "Tetris Classic",
     description:
       "Organiza las piezas que caen para completar líneas y obtener puntos.",
-    image: "/placeholder.svg?height=200&width=300", // Imagen específica
+    image: "/tetris.jpg",
     rating: 4.7,
     players: "1.8K",
     difficulty: "Medio",
@@ -51,7 +51,7 @@ const games = [
     title: "Pong Retro",
     description:
       "El primer videojuego de la historia. Controla tu paleta y vence a tu oponente.",
-    image: "/placeholder.svg?height=200&width=300", // Imagen específica
+    image: "/pong-retro.png",
     rating: 4.5,
     players: "892",
     difficulty: "Fácil",
