@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { Footer } from "@/components/footer";
+import { addComment, likeComment, getComments, getScores } from "./actions"; // Importar getScores
+import { Footer } from "@/components/footer"; // Importar el componente Footer
 
 const leaderboardData = [
   {
@@ -101,98 +102,51 @@ const leaderboardData = [
   },
 ];
 
-const initialComments = [
-  {
-    id: 1,
-    user: "GamerPro",
-    avatar: "🎯",
-    game: "Snake",
-    rating: 5,
-    comment:
-      "¡Increíble versión del clásico Snake! Los controles son muy fluidos y la jugabilidad es adictiva. Me recuerda a los viejos tiempos.",
-    date: "2024-01-15",
-    likes: 12,
-  },
-  {
-    id: 2,
-    user: "RetroFan",
-    avatar: "🕹️",
-    game: "Fruit Ninja",
-    rating: 4,
-    comment:
-      "Me encanta la mecánica de cortar frutas. Muy divertido, aunque me gustaría más variedad de frutas y algunos power-ups especiales.",
-    date: "2024-01-14",
-    likes: 8,
-  },
-  {
-    id: 3,
-    user: "CasualPlayer",
-    avatar: "🎲",
-    game: "Tetris",
-    rating: 5,
-    comment:
-      "Perfecto para relajarse. La música y los efectos visuales están geniales. La mecánica de eliminación de líneas funciona perfectamente.",
-    date: "2024-01-13",
-    likes: 15,
-  },
-  {
-    id: 4,
-    user: "NostalgicGamer",
-    avatar: "👾",
-    game: "Pong",
-    rating: 4,
-    comment:
-      "Un clásico que nunca pasa de moda. La IA es desafiante pero justa. Me trae muchos recuerdos de la infancia.",
-    date: "2024-01-12",
-    likes: 6,
-  },
-  {
-    id: 5,
-    user: "SpeedRunner",
-    avatar: "⚡",
-    game: "Snake",
-    rating: 5,
-    comment:
-      "Excelente para practicar speedruns. Los controles responden perfectamente y no hay lag. ¡Mi nuevo juego favorito!",
-    date: "2024-01-11",
-    likes: 20,
-  },
-];
-
 export default function LeaderboardPage() {
-  const [comments, setComments] = useState(initialComments);
-  const [newComment, setNewComment] = useState("");
+  const [comments, setComments] = useState<any[]>([]); // Estado para los comentarios cargados
+  const [scores, setScores] = useState<any[]>([]); // Nuevo estado para las puntuaciones
+  const [newCommentText, setNewCommentText] = useState("");
   const [userName, setUserName] = useState("");
   const [selectedGame, setSelectedGame] = useState("Snake");
   const [rating, setRating] = useState(5);
   const [selectedFilter, setSelectedFilter] = useState("all");
 
-  const handleSubmitComment = () => {
-    if (newComment.trim() && userName.trim()) {
-      const comment = {
-        id: comments.length + 1,
-        user: userName,
-        avatar: "🎮",
-        game: selectedGame,
-        rating: rating,
-        comment: newComment,
-        date: new Date().toISOString().split("T")[0],
-        likes: 0,
-      };
-      setComments([comment, ...comments]);
-      setNewComment("");
-      setUserName("");
+  useEffect(() => {
+    const fetchData = async () => {
+      const fetchedComments = await getComments();
+      setComments(fetchedComments);
+      const fetchedScores = await getScores(); // Cargar puntuaciones
+      setScores(fetchedScores);
+    };
+    fetchData();
+  }, [selectedFilter]); // Re-fetch cuando se cambia el filtro
+
+  const handleSubmitComment = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault(); // Prevenir el envío por defecto del formulario
+    const formData = new FormData(event.currentTarget);
+    formData.append("userName", userName);
+    formData.append("selectedGame", selectedGame);
+    formData.append("rating", rating.toString());
+    formData.append("newComment", newCommentText);
+
+    const response = await addComment(formData);
+    if (response.success) {
+      // No es necesario añadirlo al estado local, revalidatePath se encargará de recargar
+      // pero para una actualización más rápida en el cliente, puedes añadirlo si la acción devuelve el comentario completo
+      // setComments([response.comment, ...comments])
     }
+    setNewCommentText("");
+    setUserName("");
+    setRating(5);
   };
 
-  const handleLikeComment = (commentId: number) => {
-    setComments(
-      comments.map((comment) =>
-        comment.id === commentId
-          ? { ...comment, likes: comment.likes + 1 }
-          : comment
-      )
-    );
+  const handleLikeComment = async (commentId: string) => {
+    const response = await likeComment(commentId);
+    if (response.success) {
+      // No es necesario actualizar el estado local, revalidatePath se encargará
+    }
   };
 
   const getRankIcon = (rank: number) => {
@@ -225,17 +179,17 @@ export default function LeaderboardPage() {
 
   const filteredLeaderboard =
     selectedFilter === "all"
-      ? leaderboardData
-      : leaderboardData.filter((player) => player.game === selectedFilter);
+      ? scores // Usar las puntuaciones de Supabase
+      : scores.filter((player) => player.game_name === selectedFilter); // Filtrar por game_name
 
   const filteredComments =
     selectedFilter === "all"
       ? comments
-      : comments.filter((comment) => comment.game === selectedFilter);
+      : comments.filter((comment) => comment.game_name === selectedFilter);
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4'>
-      <div className='container mx-auto max-w-7xl'>
+    <div className='min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 flex flex-col'>
+      <div className='container mx-auto max-w-7xl flex-grow'>
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <Link href='/'>
@@ -285,42 +239,51 @@ export default function LeaderboardPage() {
               </CardHeader>
               <CardContent>
                 <div className='space-y-3'>
-                  {filteredLeaderboard.map((player, index) => (
-                    <div
-                      key={player.rank}
-                      className={`flex items-center justify-between p-4 rounded-lg transition-all hover:bg-white/5 ${
-                        index < 3
-                          ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20"
-                          : "bg-white/5"
-                      }`}
-                    >
-                      <div className='flex items-center space-x-4'>
-                        <div className='flex items-center justify-center w-10 h-10'>
-                          {getRankIcon(index + 1)}
+                  {filteredLeaderboard.length > 0 ? (
+                    filteredLeaderboard.map((player, index) => (
+                      <div
+                        key={player.id} // Usar el ID de Supabase
+                        className={`flex items-center justify-between p-4 rounded-lg transition-all hover:bg-white/5 ${
+                          index < 3
+                            ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20"
+                            : "bg-white/5"
+                        }`}
+                      >
+                        <div className='flex items-center space-x-4'>
+                          <div className='flex items-center justify-center w-10 h-10'>
+                            {getRankIcon(index + 1)}
+                          </div>
+                          <div className='text-2xl'>🎮</div>{" "}
+                          {/* Avatar genérico */}
+                          <div>
+                            <div className='font-semibold text-white'>
+                              {player.user_name}
+                            </div>
+                            <div className='flex items-center space-x-2'>
+                              <Badge className={getGameColor(player.game_name)}>
+                                {player.game_name}
+                              </Badge>
+                              <span className='text-xs text-white/50'>
+                                {new Date(
+                                  player.created_at
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className='text-2xl'>{player.avatar}</div>
-                        <div>
-                          <div className='font-semibold text-white'>
-                            {player.name}
+                        <div className='text-right'>
+                          <div className='text-xl font-bold text-purple-400'>
+                            {player.score.toLocaleString()}
                           </div>
-                          <div className='flex items-center space-x-2'>
-                            <Badge className={getGameColor(player.game)}>
-                              {player.game}
-                            </Badge>
-                            <span className='text-xs text-white/50'>
-                              {player.date}
-                            </span>
-                          </div>
+                          <div className='text-sm text-white/60'>puntos</div>
                         </div>
                       </div>
-                      <div className='text-right'>
-                        <div className='text-xl font-bold text-purple-400'>
-                          {player.score.toLocaleString()}
-                        </div>
-                        <div className='text-sm text-white/60'>puntos</div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className='text-white/60 text-center py-4'>
+                      No hay puntuaciones para mostrar.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -361,7 +324,7 @@ export default function LeaderboardPage() {
                   </div>
                   <div className='text-center'>
                     <div className='text-2xl font-bold text-orange-400'>
-                      1,234
+                      {comments.length}
                     </div>
                     <div className='text-sm text-white/60'>Comentarios</div>
                   </div>
@@ -381,59 +344,88 @@ export default function LeaderboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className='space-y-4'>
-                <div className='grid grid-cols-2 gap-4'>
-                  <Input
-                    placeholder='Tu nombre'
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className='bg-white/10 border-white/20 text-white placeholder:text-white/50'
-                  />
-                  <select
-                    value={selectedGame}
-                    onChange={(e) => setSelectedGame(e.target.value)}
-                    className='custom-select bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white focus:bg-white/20 focus:border-white/40'
-                    title='Selecciona el juego'
-                  >
-                    <option value='Snake'>Snake</option>
-                    <option value='Fruit Ninja'>Fruit Ninja</option>
-                    <option value='Tetris'>Tetris</option>
-                    <option value='Pong'>Pong</option>
-                  </select>
-                </div>
-
-                <div className='flex items-center space-x-2'>
-                  <span className='text-white/80'>Calificación:</span>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className={`${
-                        star <= rating ? "text-yellow-400" : "text-white/30"
-                      } hover:text-yellow-400 transition-colors`}
-                      title={`Selecciona ${star} estrella${
-                        star > 1 ? "s" : ""
-                      }`}
+                <form onSubmit={handleSubmitComment}>
+                  <div className='grid grid-cols-2 gap-4 mb-4'>
+                    <Input
+                      placeholder='Tu nombre'
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className='bg-white/10 border-white/20 text-white placeholder:text-white/50'
+                      name='userName' // Añadir name para FormData
+                    />
+                    <select
+                      value={selectedGame}
+                      onChange={(e) => setSelectedGame(e.target.value)}
+                      className='bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white focus:bg-white/20 focus:border-white/40'
+                      style={{
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        color: "white",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                      }}
+                      name='selectedGame' // Añadir name para FormData
                     >
-                      <Star className='h-5 w-5 fill-current' />
-                    </button>
-                  ))}
-                </div>
+                      <option
+                        value='Snake'
+                        style={{ backgroundColor: "#1f2937", color: "white" }}
+                      >
+                        Snake
+                      </option>
+                      <option
+                        value='Fruit Ninja'
+                        style={{ backgroundColor: "#1f2937", color: "white" }}
+                      >
+                        Fruit Ninja
+                      </option>
+                      <option
+                        value='Tetris'
+                        style={{ backgroundColor: "#1f2937", color: "white" }}
+                      >
+                        Tetris
+                      </option>
+                      <option
+                        value='Pong'
+                        style={{ backgroundColor: "#1f2937", color: "white" }}
+                      >
+                        Pong
+                      </option>
+                    </select>
+                  </div>
 
-                <Textarea
-                  placeholder='Escribe tu comentario sobre el juego...'
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className='bg-white/10 border-white/20 text-white placeholder:text-white/50'
-                  rows={3}
-                />
+                  <div className='flex items-center space-x-2 mb-4'>
+                    <span className='text-white/80'>Calificación:</span>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type='button' // Importante para que no envíe el formulario
+                        onClick={() => setRating(star)}
+                        className={`${
+                          star <= rating ? "text-yellow-400" : "text-white/30"
+                        } hover:text-yellow-400 transition-colors`}
+                      >
+                        <Star className='h-5 w-5 fill-current' />
+                      </button>
+                    ))}
+                    <input type='hidden' name='rating' value={rating} />{" "}
+                    {/* Campo oculto para el rating */}
+                  </div>
 
-                <Button
-                  onClick={handleSubmitComment}
-                  className='w-full bg-purple-600 hover:bg-purple-700'
-                  disabled={!newComment.trim() || !userName.trim()}
-                >
-                  Publicar Comentario
-                </Button>
+                  <Textarea
+                    placeholder='Escribe tu comentario sobre el juego...'
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    className='bg-white/10 border-white/20 text-white placeholder:text-white/50 mb-4'
+                    rows={3}
+                    name='newComment' // Añadir name para FormData
+                  />
+
+                  <Button
+                    type='submit'
+                    className='w-full bg-purple-600 hover:bg-purple-700'
+                    disabled={!newCommentText.trim() || !userName.trim()}
+                  >
+                    Publicar Comentario
+                  </Button>
+                </form>
               </CardContent>
             </Card>
 
@@ -451,46 +443,55 @@ export default function LeaderboardPage() {
               </CardHeader>
               <CardContent>
                 <div className='space-y-4 max-h-96 overflow-y-auto'>
-                  {filteredComments.map((comment) => (
-                    <div
-                      key={comment.id}
-                      className='bg-white/5 p-4 rounded-lg hover:bg-white/10 transition-colors'
-                    >
-                      <div className='flex items-start justify-between mb-2'>
-                        <div className='flex items-center space-x-2'>
-                          <span className='text-xl'>{comment.avatar}</span>
-                          <span className='font-semibold text-white'>
-                            {comment.user}
-                          </span>
-                          <Badge className={getGameColor(comment.game)}>
-                            {comment.game}
-                          </Badge>
-                        </div>
-                        <div className='flex items-center space-x-2'>
-                          <div className='flex items-center space-x-1'>
-                            {Array.from({ length: comment.rating }).map(
-                              (_, i) => (
-                                <Star
-                                  key={i}
-                                  className='h-4 w-4 text-yellow-400 fill-current'
-                                />
-                              )
-                            )}
+                  {filteredComments.length > 0 ? (
+                    filteredComments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className='bg-white/5 p-4 rounded-lg hover:bg-white/10 transition-colors'
+                      >
+                        <div className='flex items-start justify-between mb-2'>
+                          <div className='flex items-center space-x-2'>
+                            <span className='text-xl'>🎮</span>{" "}
+                            {/* Avatar genérico */}
+                            <span className='font-semibold text-white'>
+                              {comment.user_name}
+                            </span>
+                            <Badge className={getGameColor(comment.game_name)}>
+                              {comment.game_name}
+                            </Badge>
                           </div>
-                          <button
-                            onClick={() => handleLikeComment(comment.id)}
-                            className='text-red-400 hover:text-red-300 transition-colors text-sm'
-                          >
-                            ❤️ {comment.likes}
-                          </button>
+                          <div className='flex items-center space-x-2'>
+                            <div className='flex items-center space-x-1'>
+                              {Array.from({ length: comment.rating }).map(
+                                (_, i) => (
+                                  <Star
+                                    key={i}
+                                    className='h-4 w-4 text-yellow-400 fill-current'
+                                  />
+                                )
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleLikeComment(comment.id)}
+                              className='text-red-400 hover:text-red-300 transition-colors text-sm'
+                            >
+                              ❤️ {comment.likes}
+                            </button>
+                          </div>
+                        </div>
+                        <p className='text-white/80 mb-2'>
+                          {comment.comment_text}
+                        </p>
+                        <div className='text-sm text-white/50'>
+                          {new Date(comment.created_at).toLocaleDateString()}
                         </div>
                       </div>
-                      <p className='text-white/80 mb-2'>{comment.comment}</p>
-                      <div className='text-sm text-white/50'>
-                        {comment.date}
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className='text-white/60 text-center py-4'>
+                      No hay comentarios para mostrar.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
