@@ -16,18 +16,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang='es'>
+    <html lang='es' className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         <link rel='icon' href='/icon.svg' type='image/svg+xml' />
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
+        <link rel='preconnect' href='https://fonts.googleapis.com' />
+        <link
+          rel='preconnect'
+          href='https://fonts.gstatic.com'
+          crossOrigin='anonymous'
+        />
+        <link
+          href='https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap'
+          rel='stylesheet'
+        />
       </head>
-      <body>{children}</body>
+      <body className='font-sans antialiased'>{children}</body>
     </html>
   );
 }

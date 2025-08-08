@@ -172,17 +172,16 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Título principal ÉPICO */}
+              {/* Título principal ÉPICO - Usando clases CSS */}
               <div className='relative mb-4 md:mb-6'>
                 <h1
-                  className='text-4xl sm:text-5xl md:text-6xl lg:text-8xl xl:text-9xl font-black text-transparent mb-2 md:mb-4 retro-gaming'
+                  className='text-4xl sm:text-5xl md:text-6xl lg:text-8xl xl:text-9xl font-black text-transparent mb-2 md:mb-4 font-retro animate-rainbow-wave'
                   style={{
                     background:
                       "linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff6600, #ff00ff)",
                     backgroundSize: "400% 400%",
                     WebkitBackgroundClip: "text",
                     backgroundClip: "text",
-                    animation: "rainbow-wave 4s ease-in-out infinite",
                     textShadow: "0 0 80px rgba(255,0,255,0.8)",
                   }}
                 >
@@ -192,14 +191,13 @@ export default function HomePage() {
 
               <div className='relative mb-6 md:mb-8'>
                 <h2
-                  className='text-2xl sm:text-3xl md:text-4xl lg:text-6xl xl:text-8xl font-black retro-gaming'
+                  className='text-2xl sm:text-3xl md:text-4xl lg:text-6xl xl:text-8xl font-black font-retro animate-gradient-pulse'
                   style={{
                     background:
                       "linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)",
                     backgroundSize: "300% 300%",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
-                    animation: "gradient-pulse 3s ease-in-out infinite",
                     filter: "drop-shadow(0 0 30px rgba(102, 126, 234, 0.6))",
                   }}
                 >
@@ -403,14 +401,10 @@ export default function HomePage() {
         <section id='games' className='py-16 md:py-24'>
           <div className='container mx-auto px-4'>
             <div className='text-center mb-12 md:mb-16'>
-              {/* Prueba simple sin animaciones primero */}
               <h3
+                className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-pink-400 mb-6 font-retro tracking-wider'
                 style={{
-                  fontSize: "clamp(1.5rem, 5vw, 4rem)",
-                  fontFamily: '"Press Start 2P", "Courier New", monospace',
-                  color: "#ff0080",
                   textShadow: "0 0 10px #ff0080",
-                  marginBottom: "1.5rem",
                   letterSpacing: "0.1em",
                 }}
               >
@@ -420,7 +414,6 @@ export default function HomePage() {
                 Selecciona tu juego favorito y comienza la aventura retro.
               </p>
 
-              {/* Test para ver si las animaciones funcionan */}
               <div className='flex justify-center items-center mt-6'>
                 <div className='h-1 w-16 md:w-32 bg-gradient-to-r from-transparent via-cyan-400 to-transparent'></div>
                 <span className='mx-4 text-cyan-400 text-2xl md:text-3xl animate-bounce'>
@@ -515,32 +508,6 @@ export default function HomePage() {
 
       {/* Footer */}
       <Footer />
-
-      <style jsx>{`
-        @keyframes rainbow-wave {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-
-        @keyframes gradient-pulse {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-      `}</style>
     </div>
   );
 }
