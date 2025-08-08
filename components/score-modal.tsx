@@ -1,3 +1,5 @@
+// components/score-modal.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";

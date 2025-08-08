@@ -3,25 +3,28 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  Play,
+  Pause,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
 import { ScoreModal } from "@/components/score-modal";
 
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 400;
-const PADDLE_HEIGHT = 80;
-const PADDLE_WIDTH = 10;
-const BALL_SIZE = 10;
-
 export default function PongGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
+  const [paddleHeight, setPaddleHeight] = useState(80);
   const [gameState, setGameState] = useState({
-    playerY: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-    aiY: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-    ballX: CANVAS_WIDTH / 2,
-    ballY: CANVAS_HEIGHT / 2,
+    playerY: 0,
+    aiY: 0,
+    ballX: 0,
+    ballY: 0,
     ballVX: 5,
     ballVY: 3,
     playerScore: 0,
@@ -33,12 +36,55 @@ export default function PongGame() {
   const keysPressed = useRef<Set<string>>(new Set());
   const [showScoreModal, setShowScoreModal] = useState(false);
 
+  const PADDLE_WIDTH = 10;
+  const BALL_SIZE = 10;
+
+  // Actualizar tamaño del canvas y elementos según la pantalla
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      const isMobile = window.innerWidth < 768;
+      const isTablet = window.innerWidth < 1024;
+
+      let newCanvasSize, newPaddleHeight;
+
+      if (isMobile) {
+        newCanvasSize = {
+          width: Math.min(350, window.innerWidth - 40),
+          height: 250,
+        };
+        newPaddleHeight = 60;
+      } else if (isTablet) {
+        newCanvasSize = { width: 600, height: 300 };
+        newPaddleHeight = 70;
+      } else {
+        newCanvasSize = { width: 800, height: 400 };
+        newPaddleHeight = 80;
+      }
+
+      setCanvasSize(newCanvasSize);
+      setPaddleHeight(newPaddleHeight);
+
+      // Resetear posiciones cuando cambie el tamaño
+      setGameState((prev) => ({
+        ...prev,
+        playerY: newCanvasSize.height / 2 - newPaddleHeight / 2,
+        aiY: newCanvasSize.height / 2 - newPaddleHeight / 2,
+        ballX: newCanvasSize.width / 2,
+        ballY: newCanvasSize.height / 2,
+      }));
+    };
+
+    updateCanvasSize();
+    window.addEventListener("resize", updateCanvasSize);
+    return () => window.removeEventListener("resize", updateCanvasSize);
+  }, []);
+
   const resetGame = () => {
     setGameState({
-      playerY: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-      aiY: CANVAS_HEIGHT / 2 - PADDLE_HEIGHT / 2,
-      ballX: CANVAS_WIDTH / 2,
-      ballY: CANVAS_HEIGHT / 2,
+      playerY: canvasSize.height / 2 - paddleHeight / 2,
+      aiY: canvasSize.height / 2 - paddleHeight / 2,
+      ballX: canvasSize.width / 2,
+      ballY: canvasSize.height / 2,
       ballVX: Math.random() > 0.5 ? 5 : -5,
       ballVY: (Math.random() - 0.5) * 6,
       playerScore: 0,
@@ -46,7 +92,24 @@ export default function PongGame() {
       gameOver: false,
       isPlaying: false,
     });
-    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
+    setShowScoreModal(false);
+  };
+
+  // Funciones para controles móviles
+  const movePlayerUp = () => {
+    if (!gameState.isPlaying || gameState.gameOver) return;
+    setGameState((prev) => ({
+      ...prev,
+      playerY: Math.max(0, prev.playerY - 15),
+    }));
+  };
+
+  const movePlayerDown = () => {
+    if (!gameState.isPlaying || gameState.gameOver) return;
+    setGameState((prev) => ({
+      ...prev,
+      playerY: Math.min(canvasSize.height - paddleHeight, prev.playerY + 15),
+    }));
   };
 
   const updateGame = useCallback(() => {
@@ -55,19 +118,21 @@ export default function PongGame() {
     setGameState((prev) => {
       let newState = { ...prev };
 
-      // Player paddle movement
-      if (keysPressed.current.has("ArrowUp") && newState.playerY > 0) {
-        newState.playerY -= 8;
-      }
-      if (
-        keysPressed.current.has("ArrowDown") &&
-        newState.playerY < CANVAS_HEIGHT - PADDLE_HEIGHT
-      ) {
-        newState.playerY += 8;
+      // Player paddle movement (solo teclado en desktop)
+      if (window.innerWidth >= 768) {
+        if (keysPressed.current.has("ArrowUp") && newState.playerY > 0) {
+          newState.playerY -= 8;
+        }
+        if (
+          keysPressed.current.has("ArrowDown") &&
+          newState.playerY < canvasSize.height - paddleHeight
+        ) {
+          newState.playerY += 8;
+        }
       }
 
       // AI paddle movement (simple AI)
-      const aiCenter = newState.aiY + PADDLE_HEIGHT / 2;
+      const aiCenter = newState.aiY + paddleHeight / 2;
       const ballCenter = newState.ballY;
       const aiSpeed = 4;
 
@@ -75,7 +140,7 @@ export default function PongGame() {
         newState.aiY = Math.max(0, newState.aiY - aiSpeed);
       } else if (ballCenter > aiCenter + 10) {
         newState.aiY = Math.min(
-          CANVAS_HEIGHT - PADDLE_HEIGHT,
+          canvasSize.height - paddleHeight,
           newState.aiY + aiSpeed
         );
       }
@@ -85,7 +150,10 @@ export default function PongGame() {
       newState.ballY += newState.ballVY;
 
       // Ball collision with top and bottom walls
-      if (newState.ballY <= 0 || newState.ballY >= CANVAS_HEIGHT - BALL_SIZE) {
+      if (
+        newState.ballY <= 0 ||
+        newState.ballY >= canvasSize.height - BALL_SIZE
+      ) {
         newState.ballVY = -newState.ballVY;
       }
 
@@ -93,38 +161,38 @@ export default function PongGame() {
       if (
         newState.ballX <= PADDLE_WIDTH &&
         newState.ballY + BALL_SIZE >= newState.playerY &&
-        newState.ballY <= newState.playerY + PADDLE_HEIGHT
+        newState.ballY <= newState.playerY + paddleHeight
       ) {
         newState.ballVX = -newState.ballVX;
-        const hitPos = (newState.ballY - newState.playerY) / PADDLE_HEIGHT;
+        const hitPos = (newState.ballY - newState.playerY) / paddleHeight;
         newState.ballVY = (hitPos - 0.5) * 10;
       }
 
       // Ball collision with AI paddle
       if (
-        newState.ballX + BALL_SIZE >= CANVAS_WIDTH - PADDLE_WIDTH &&
+        newState.ballX + BALL_SIZE >= canvasSize.width - PADDLE_WIDTH &&
         newState.ballY + BALL_SIZE >= newState.aiY &&
-        newState.ballY <= newState.aiY + PADDLE_HEIGHT
+        newState.ballY <= newState.aiY + paddleHeight
       ) {
         newState.ballVX = -newState.ballVX;
-        const hitPos = (newState.ballY - newState.aiY) / PADDLE_HEIGHT;
+        const hitPos = (newState.ballY - newState.aiY) / paddleHeight;
         newState.ballVY = (hitPos - 0.5) * 10;
       }
 
       // Ball out of bounds (scoring)
       if (newState.ballX < 0) {
         newState.aiScore++;
-        newState.ballX = CANVAS_WIDTH / 2;
-        newState.ballY = CANVAS_HEIGHT / 2;
+        newState.ballX = canvasSize.width / 2;
+        newState.ballY = canvasSize.height / 2;
         newState.ballVX = 5;
         newState.ballVY = (Math.random() - 0.5) * 6;
-      } else if (newState.ballX > CANVAS_WIDTH) {
+      } else if (newState.ballX > canvasSize.width) {
         newState.playerScore++;
         if (newState.playerScore > highScore) {
           setHighScore(newState.playerScore);
         }
-        newState.ballX = CANVAS_WIDTH / 2;
-        newState.ballY = CANVAS_HEIGHT / 2;
+        newState.ballX = canvasSize.width / 2;
+        newState.ballY = canvasSize.height / 2;
         newState.ballVX = -5;
         newState.ballVY = (Math.random() - 0.5) * 6;
       }
@@ -137,7 +205,13 @@ export default function PongGame() {
 
       return newState;
     });
-  }, [gameState.isPlaying, gameState.gameOver, highScore]);
+  }, [
+    gameState.isPlaying,
+    gameState.gameOver,
+    highScore,
+    canvasSize,
+    paddleHeight,
+  ]);
 
   // Game loop
   useEffect(() => {
@@ -147,8 +221,10 @@ export default function PongGame() {
     return () => clearInterval(gameLoop);
   }, [gameState.isPlaying, gameState.gameOver, updateGame]);
 
-  // Keyboard controls
+  // Keyboard controls (solo desktop)
   useEffect(() => {
+    if (window.innerWidth < 768) return; // No keyboard en móvil
+
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current.add(e.key);
     };
@@ -174,11 +250,10 @@ export default function PongGame() {
 
   const handleSaveScore = async (enteredUserName: string) => {
     if (gameState.playerScore > 0) {
-      // Solo guardar si hay puntuación
       await saveScore(enteredUserName, "Pong Retro", gameState.playerScore);
     }
-    setShowScoreModal(false); // Cerrar modal después de guardar
-    resetGame(); // Reiniciar el juego
+    setShowScoreModal(false);
+    resetGame();
   };
 
   // Canvas rendering
@@ -191,93 +266,149 @@ export default function PongGame() {
 
     // Clear canvas
     ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
     // Draw center line
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.setLineDash([10, 10]);
     ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH / 2, 0);
-    ctx.lineTo(CANVAS_WIDTH / 2, CANVAS_HEIGHT);
+    ctx.moveTo(canvasSize.width / 2, 0);
+    ctx.lineTo(canvasSize.width / 2, canvasSize.height);
     ctx.stroke();
     ctx.setLineDash([]);
 
     // Draw paddles
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, gameState.playerY, PADDLE_WIDTH, PADDLE_HEIGHT);
+    ctx.fillRect(0, gameState.playerY, PADDLE_WIDTH, paddleHeight);
     ctx.fillRect(
-      CANVAS_WIDTH - PADDLE_WIDTH,
+      canvasSize.width - PADDLE_WIDTH,
       gameState.aiY,
       PADDLE_WIDTH,
-      PADDLE_HEIGHT
+      paddleHeight
     );
 
     // Draw ball
     ctx.fillRect(gameState.ballX, gameState.ballY, BALL_SIZE, BALL_SIZE);
 
     // Draw scores
-    ctx.font = "48px Arial";
+    const fontSize = Math.min(48, canvasSize.width / 16);
+    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText(gameState.playerScore.toString(), CANVAS_WIDTH / 4, 60);
-    ctx.fillText(gameState.aiScore.toString(), (3 * CANVAS_WIDTH) / 4, 60);
-  }, [gameState]);
+    ctx.fillText(
+      gameState.playerScore.toString(),
+      canvasSize.width / 4,
+      fontSize + 10
+    );
+    ctx.fillText(
+      gameState.aiScore.toString(),
+      (3 * canvasSize.width) / 4,
+      fontSize + 10
+    );
+  }, [gameState, canvasSize, paddleHeight]);
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black p-4 flex flex-col'>
-      <div className='container mx-auto max-w-6xl flex-grow'>
-        {/* Header */}
-        <div className='flex items-center justify-between mb-6'>
+    <div className='min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black p-2 sm:p-4 flex flex-col'>
+      <div className='container mx-auto max-w-7xl flex-grow'>
+        {/* Header mejorado */}
+        <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-4'>
           <Link href='/'>
-            <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'>
+            <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base'>
               <ArrowLeft className='h-4 w-4 mr-2' />
               Volver
             </Button>
           </Link>
-          <h1 className='text-3xl font-bold text-white'>Pong Retro</h1>
-          <div className='w-20'></div>
+          <h1 className='text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center flex-1'>
+            Pong Retro
+          </h1>
+          <div className='w-20 hidden sm:block'></div>
         </div>
 
-        <div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>
+        <div className='grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6'>
           {/* Game Canvas */}
-          <div className='lg:col-span-3'>
+          <div className='xl:col-span-3 order-2 xl:order-1'>
             <Card className='bg-black/40 backdrop-blur-sm border-white/20'>
-              <CardContent className='p-6'>
-                <div className='relative'>
+              <CardContent className='p-2 sm:p-4 lg:p-6'>
+                <div className='flex justify-center mb-4'>
                   <canvas
                     ref={canvasRef}
-                    width={CANVAS_WIDTH}
-                    height={CANVAS_HEIGHT}
-                    className='w-full h-auto bg-black border-2 border-white rounded-lg'
+                    width={canvasSize.width}
+                    height={canvasSize.height}
+                    className='w-full max-w-full h-auto bg-black border-2 border-white rounded-lg'
+                    style={{
+                      maxWidth: `${canvasSize.width}px`,
+                      aspectRatio: `${canvasSize.width}/${canvasSize.height}`,
+                    }}
                   />
+                </div>
+
+                {/* Controles táctiles para móvil */}
+                <div className='block md:hidden'>
+                  <div className='flex justify-center gap-4'>
+                    <div className='flex flex-col gap-2'>
+                      <span className='text-white text-xs text-center mb-1'>
+                        Tu Paleta
+                      </span>
+                      <Button
+                        onTouchStart={movePlayerUp}
+                        onClick={movePlayerUp}
+                        className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
+                        disabled={!gameState.isPlaying || gameState.gameOver}
+                      >
+                        <ArrowUp className='h-6 w-6' />
+                      </Button>
+                      <Button
+                        onTouchStart={movePlayerDown}
+                        onClick={movePlayerDown}
+                        className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
+                        disabled={!gameState.isPlaying || gameState.gameOver}
+                      >
+                        <ArrowDown className='h-6 w-6' />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className='mt-4 text-center'>
+                    <p className='text-white/80 text-sm'>
+                      Controla tu paleta (izquierda) 🏓
+                    </p>
+                    <p className='text-white/60 text-xs mt-1'>
+                      Evita que la pelota pase por tu lado
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Game Info */}
-          <div className='space-y-6'>
+          {/* Game Info - Responsive */}
+          <div className='space-y-4 sm:space-y-6 order-1 xl:order-2'>
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Puntuación</CardTitle>
+              <CardHeader className='pb-2 sm:pb-4'>
+                <CardTitle className='text-white text-lg sm:text-xl'>
+                  Puntuación
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className='text-center space-y-2'>
-                  <div className='text-2xl font-bold text-white'>
+                  <div className='text-xl sm:text-2xl font-bold text-white'>
                     {gameState.playerScore} - {gameState.aiScore}
                   </div>
                   <div className='text-sm text-white/60'>
                     Mejor: {highScore}
                   </div>
+                  <div className='text-xs text-white/50'>(Tu - IA)</div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Controles</CardTitle>
+              <CardHeader className='pb-2 sm:pb-4'>
+                <CardTitle className='text-white text-lg sm:text-xl'>
+                  Controles
+                </CardTitle>
               </CardHeader>
-              <CardContent className='space-y-4'>
+              <CardContent className='space-y-3 sm:space-y-4'>
                 <Button
                   onClick={() =>
                     setGameState((prev) => ({
@@ -285,7 +416,7 @@ export default function PongGame() {
                       isPlaying: !prev.isPlaying,
                     }))
                   }
-                  className='w-full bg-gray-600 hover:bg-gray-700'
+                  className='w-full bg-gray-600 hover:bg-gray-700 text-sm sm:text-base py-2 sm:py-3'
                   disabled={gameState.gameOver}
                 >
                   {gameState.isPlaying ? (
@@ -303,14 +434,17 @@ export default function PongGame() {
 
                 <Button
                   onClick={resetGame}
-                  className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'
+                  className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base py-2 sm:py-3'
                 >
                   <RotateCcw className='h-4 w-4 mr-2' />
                   Reiniciar
                 </Button>
 
-                <div className='text-sm text-white/60 space-y-1'>
-                  <p>• ↑ ↓ Mover paleta</p>
+                <div className='text-xs sm:text-sm text-white/60 space-y-1'>
+                  <p className='hidden md:block'>• ↑ ↓ Mover paleta</p>
+                  <p className='md:hidden'>
+                    • Usa los botones para mover tu paleta
+                  </p>
                   <p>• Primer jugador en llegar a 10 gana</p>
                   <p>• La pelota acelera con cada golpe</p>
                 </div>
@@ -318,11 +452,13 @@ export default function PongGame() {
             </Card>
 
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Instrucciones</CardTitle>
+              <CardHeader className='pb-2 sm:pb-4'>
+                <CardTitle className='text-white text-lg sm:text-xl'>
+                  Instrucciones
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='text-sm text-white/80 space-y-2'>
+                <div className='text-xs sm:text-sm text-white/80 space-y-2'>
                   <p>🏓 Controla la paleta izquierda</p>
                   <p>🤖 La IA controla la derecha</p>
                   <p>⚡ Evita que la pelota pase</p>

@@ -3,11 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  Play,
+  Pause,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeftIcon,
+  ArrowRight,
+} from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
 import { ScoreModal } from "@/components/score-modal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 type Position = { x: number; y: number };
@@ -25,6 +35,7 @@ export default function SnakeGame() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const isMobile = useIsMobile();
 
   const generateFood = useCallback(() => {
     const newFood = {
@@ -41,7 +52,24 @@ export default function SnakeGame() {
     setGameOver(false);
     setScore(0);
     setIsPlaying(false);
-    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
+    setShowScoreModal(false);
+  };
+
+  const changeDirection = (newDirection: Direction) => {
+    if (!isPlaying) return;
+
+    setDirection((prev) => {
+      // Evitar movimiento en dirección opuesta
+      if (
+        (prev === "UP" && newDirection === "DOWN") ||
+        (prev === "DOWN" && newDirection === "UP") ||
+        (prev === "LEFT" && newDirection === "RIGHT") ||
+        (prev === "RIGHT" && newDirection === "LEFT")
+      ) {
+        return prev;
+      }
+      return newDirection;
+    });
   };
 
   const moveSnake = useCallback(() => {
@@ -114,19 +142,19 @@ export default function SnakeGame() {
       switch (e.key) {
         case "ArrowUp":
           e.preventDefault();
-          setDirection((prev) => (prev !== "DOWN" ? "UP" : prev));
+          changeDirection("UP");
           break;
         case "ArrowDown":
           e.preventDefault();
-          setDirection((prev) => (prev !== "UP" ? "DOWN" : prev));
+          changeDirection("DOWN");
           break;
         case "ArrowLeft":
           e.preventDefault();
-          setDirection((prev) => (prev !== "RIGHT" ? "LEFT" : prev));
+          changeDirection("LEFT");
           break;
         case "ArrowRight":
           e.preventDefault();
-          setDirection((prev) => (prev !== "LEFT" ? "RIGHT" : prev));
+          changeDirection("RIGHT");
           break;
       }
     };
@@ -148,144 +176,216 @@ export default function SnakeGame() {
 
   const handleSaveScore = async (enteredUserName: string) => {
     if (score > 0) {
-      // Solo guardar si hay puntuación
       await saveScore(enteredUserName, "Snake", score);
     }
-    setShowScoreModal(false); // Cerrar modal después de guardar
-    resetGame(); // Reiniciar el juego
+    setShowScoreModal(false);
+    resetGame();
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 p-4 flex flex-col'>
-      <div className='container mx-auto max-w-4xl flex-grow'>
-        {/* Header */}
-        <div className='flex items-center justify-between mb-6'>
-          <Link href='/'>
-            <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'>
-              <ArrowLeft className='h-4 w-4 mr-2' />
-              Volver
-            </Button>
-          </Link>
-          <h1 className='text-3xl font-bold text-white'>Snake Classic</h1>
-          <div className='w-20'></div>
-        </div>
-
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-          {/* Game Board */}
-          <div className='lg:col-span-2'>
-            <Card className='bg-black/40 backdrop-blur-sm border-white/20'>
-              <CardContent className='p-6'>
-                <div
-                  className='grid bg-gray-900 border-2 border-green-400 mx-auto'
-                  style={{
-                    gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-                    width: "400px",
-                    height: "400px",
-                  }}
-                >
-                  {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(
-                    (_, index) => {
-                      const x = index % GRID_SIZE;
-                      const y = Math.floor(index / GRID_SIZE);
-                      const isSnake = snake.some(
-                        (segment) => segment.x === x && segment.y === y
-                      );
-                      const isFood = food.x === x && food.y === y;
-                      const isHead = snake[0]?.x === x && snake[0]?.y === y;
-
-                      return (
-                        <div
-                          key={index}
-                          className={`border border-gray-800 ${
-                            isSnake
-                              ? isHead
-                                ? "bg-green-400"
-                                : "bg-green-600"
-                              : isFood
-                              ? "bg-red-500"
-                              : "bg-gray-900"
-                          }`}
-                        />
-                      );
-                    }
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Game Info */}
-          <div className='space-y-6'>
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Puntuación</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-3xl font-bold text-green-400 mb-2'>
-                  {score}
-                </div>
-                <div className='text-sm text-white/60'>Mejor: {highScore}</div>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Controles</CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <Button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className='w-full bg-green-600 hover:bg-green-700'
-                  disabled={gameOver}
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className='h-4 w-4 mr-2' />
-                      Pausar
-                    </>
-                  ) : (
-                    <>
-                      <Play className='h-4 w-4 mr-2' />
-                      {gameOver ? "Reiniciar" : "Jugar"}
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  onClick={resetGame}
-                  className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'
-                >
-                  <RotateCcw className='h-4 w-4 mr-2' />
-                  Reiniciar
-                </Button>
-
-                <div className='text-sm text-white/60 space-y-1'>
-                  <p>• Usa las flechas del teclado para moverte</p>
-                  <p>• Come la comida roja para crecer</p>
-                  <p>• Evita chocar con las paredes o contigo mismo</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Instrucciones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-sm text-white/80 space-y-2'>
-                  <p>🐍 Controla la serpiente verde</p>
-                  <p>🍎 Come la comida roja para crecer</p>
-                  <p>⚡ Cada comida vale 10 puntos</p>
-                  <p>💀 No choques con las paredes o contigo mismo</p>
-                </div>
-              </CardContent>
-            </Card>
+    <div className='min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 flex flex-col'>
+      {/* Header mejorado con mejor espaciado */}
+      <header className='w-full px-4 py-6 sm:px-6 lg:px-8'>
+        <div className='max-w-7xl mx-auto'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center'>
+              Snake Classic
+            </h1>
+            {/* Spacer para centrar el título */}
+            <div className='w-20 sm:w-24'></div>
           </div>
         </div>
-      </div>
+      </header>
+
+      {/* Contenido principal con constraints de tamaño */}
+      <main className='flex-1 px-2 sm:px-4 pb-4'>
+        <div className='max-w-7xl mx-auto h-full'>
+          <div className='grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6 h-full'>
+            {/* Panel de información - Orden 1 en móvil */}
+            <div className='xl:col-span-1 xl:order-2 space-y-4 sm:space-y-6'>
+              <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Puntuación
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className='text-2xl sm:text-3xl font-bold text-green-400 mb-2'>
+                    {score}
+                  </div>
+                  <div className='text-sm text-white/60'>
+                    Mejor: {highScore}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Controles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-3 sm:space-y-4'>
+                  <Button
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className='w-full bg-green-600 hover:bg-green-700 text-sm sm:text-base py-2 sm:py-3'
+                    disabled={gameOver}
+                  >
+                    {isPlaying ? (
+                      <>
+                        <Pause className='h-4 w-4 mr-2' />
+                        Pausar
+                      </>
+                    ) : (
+                      <>
+                        <Play className='h-4 w-4 mr-2' />
+                        {gameOver ? "Reiniciar" : "Jugar"}
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={resetGame}
+                    className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base py-2 sm:py-3'
+                  >
+                    <RotateCcw className='h-4 w-4 mr-2' />
+                    Reiniciar
+                  </Button>
+
+                  <div className='text-xs sm:text-sm text-white/60 space-y-1'>
+                    {!isMobile ? (
+                      <p>• Usa las flechas del teclado para moverte</p>
+                    ) : (
+                      <p>• Usa los botones de dirección para moverte</p>
+                    )}
+                    <p>• Come la comida roja para crecer</p>
+                    <p>• Evita chocar con las paredes o contigo mismo</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Instrucciones
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className='text-xs sm:text-sm text-white/80 space-y-2'>
+                    <p>🐍 Controla la serpiente verde</p>
+                    <p>🍎 Come la comida roja para crecer</p>
+                    <p>⚡ Cada comida vale 10 puntos</p>
+                    <p>💀 No choques con las paredes o contigo mismo</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Game Board - Orden 2 en móvil, centrado y con límites */}
+            <div className='xl:col-span-3 xl:order-1 flex flex-col items-center justify-center min-h-0'>
+              <Card className='bg-black/40 backdrop-blur-sm border-white/20 w-full max-w-lg mx-auto'>
+                <CardContent className='p-2 sm:p-4 lg:p-6'>
+                  {/* Contenedor del juego con aspect ratio fijo */}
+                  <div className='w-full aspect-square max-w-md mx-auto'>
+                    <div
+                      className='grid bg-gray-900 border-2 border-green-400 w-full h-full'
+                      style={{
+                        gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                      }}
+                    >
+                      {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(
+                        (_, index) => {
+                          const x = index % GRID_SIZE;
+                          const y = Math.floor(index / GRID_SIZE);
+                          const isSnake = snake.some(
+                            (segment) => segment.x === x && segment.y === y
+                          );
+                          const isFood = food.x === x && food.y === y;
+                          const isHead = snake[0]?.x === x && snake[0]?.y === y;
+
+                          return (
+                            <div
+                              key={index}
+                              className={`border border-gray-800 ${
+                                isSnake
+                                  ? isHead
+                                    ? "bg-green-400"
+                                    : "bg-green-600"
+                                  : isFood
+                                  ? "bg-red-500"
+                                  : "bg-gray-900"
+                              }`}
+                            />
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Controles táctiles para móvil */}
+                  {isMobile && (
+                    <div className='mt-4 sm:mt-6'>
+                      <div className='flex justify-center'>
+                        <div className='grid grid-cols-3 gap-2 w-48'>
+                          <div></div>
+                          <Button
+                            onTouchStart={() => changeDirection("UP")}
+                            onClick={() => changeDirection("UP")}
+                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                            disabled={!isPlaying || gameOver}
+                          >
+                            <ArrowUp className='h-6 w-6' />
+                          </Button>
+                          <div></div>
+
+                          <Button
+                            onTouchStart={() => changeDirection("LEFT")}
+                            onClick={() => changeDirection("LEFT")}
+                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                            disabled={!isPlaying || gameOver}
+                          >
+                            <ArrowLeftIcon className='h-6 w-6' />
+                          </Button>
+                          <div></div>
+                          <Button
+                            onTouchStart={() => changeDirection("RIGHT")}
+                            onClick={() => changeDirection("RIGHT")}
+                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                            disabled={!isPlaying || gameOver}
+                          >
+                            <ArrowRight className='h-6 w-6' />
+                          </Button>
+
+                          <div></div>
+                          <Button
+                            onTouchStart={() => changeDirection("DOWN")}
+                            onClick={() => changeDirection("DOWN")}
+                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                            disabled={!isPlaying || gameOver}
+                          >
+                            <ArrowDown className='h-6 w-6' />
+                          </Button>
+                          <div></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </main>
+
       <ScoreModal
         isOpen={showScoreModal}
-        onClose={resetGame} // Llama a resetGame directamente al cerrar el modal
+        onClose={resetGame}
         score={score}
         gameName='Snake Classic'
         hasScoreToSave={score > 0}

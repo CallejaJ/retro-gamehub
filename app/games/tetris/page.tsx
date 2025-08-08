@@ -3,11 +3,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
+import {
+  ArrowLeft,
+  RotateCcw,
+  Play,
+  Pause,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeftIcon,
+  ArrowRight,
+  RotateCw,
+} from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
 import { ScoreModal } from "@/components/score-modal";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
@@ -68,14 +79,12 @@ interface Piece {
 }
 
 export default function TetrisGame() {
-  // Tablero estático (piezas ya colocadas)
   const [board, setBoard] = useState<(string | null)[][]>(
     Array(BOARD_HEIGHT)
       .fill(null)
       .map(() => Array(BOARD_WIDTH).fill(null))
   );
 
-  // Pieza actual que está cayendo
   const [currentPiece, setCurrentPiece] = useState<Piece | null>(null);
   const [nextPiece, setNextPiece] = useState<TetrominoType | null>(null);
 
@@ -86,6 +95,7 @@ export default function TetrisGame() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const isMobile = useIsMobile();
 
   const dropTimeRef = useRef<number>(1000);
   const lastDropTimeRef = useRef<number>(0);
@@ -107,7 +117,6 @@ export default function TetrisGame() {
     return shape;
   };
 
-  // Verificar si una posición es válida
   const isValidPosition = useCallback(
     (piece: Piece, testBoard?: (string | null)[][]): boolean => {
       const shape = getPieceShape(piece);
@@ -119,12 +128,10 @@ export default function TetrisGame() {
             const newX = piece.x + px;
             const newY = piece.y + py;
 
-            // Verificar límites
             if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) {
               return false;
             }
 
-            // Verificar colisión con piezas ya colocadas (solo si Y >= 0)
             if (newY >= 0 && boardToTest[newY][newX] !== null) {
               return false;
             }
@@ -136,7 +143,6 @@ export default function TetrisGame() {
     [board]
   );
 
-  // Colocar pieza en el tablero
   const placePieceOnBoard = useCallback(
     (piece: Piece): (string | null)[][] => {
       const newBoard = board.map((row) => [...row]);
@@ -159,7 +165,6 @@ export default function TetrisGame() {
     [board]
   );
 
-  // Eliminar líneas completas
   const clearLines = useCallback(
     (
       boardToClear: (string | null)[][]
@@ -175,7 +180,6 @@ export default function TetrisGame() {
         }
       }
 
-      // Agregar líneas vacías al principio
       while (newBoard.length < BOARD_HEIGHT) {
         newBoard.unshift(Array(BOARD_WIDTH).fill(null));
       }
@@ -185,7 +189,6 @@ export default function TetrisGame() {
     []
   );
 
-  // Generar nueva pieza
   const spawnNewPiece = useCallback((): Piece => {
     const type = nextPiece || getRandomTetromino();
     setNextPiece(getRandomTetromino());
@@ -198,7 +201,6 @@ export default function TetrisGame() {
     };
   }, [nextPiece]);
 
-  // Mover pieza
   const movePiece = useCallback(
     (dx: number, dy: number): boolean => {
       if (!currentPiece || !isPlaying || gameOver) return false;
@@ -214,7 +216,6 @@ export default function TetrisGame() {
         return true;
       }
 
-      // Si no se puede mover hacia abajo, colocar la pieza
       if (dy > 0) {
         const newBoard = placePieceOnBoard(currentPiece);
         const { newBoard: clearedBoard, linesCleared } = clearLines(newBoard);
@@ -233,7 +234,6 @@ export default function TetrisGame() {
           setLevel(Math.floor((lines + linesCleared) / 10) + 1);
         }
 
-        // Generar nueva pieza
         const newPieceSpawned = spawnNewPiece();
         if (!isValidPosition(newPieceSpawned, clearedBoard)) {
           setGameOver(true);
@@ -259,7 +259,6 @@ export default function TetrisGame() {
     ]
   );
 
-  // Rotar pieza
   const rotatePieceHandler = useCallback(() => {
     if (!currentPiece || !isPlaying || gameOver) return;
 
@@ -273,7 +272,6 @@ export default function TetrisGame() {
     }
   }, [currentPiece, isPlaying, gameOver, isValidPosition]);
 
-  // Caída automática
   const drop = useCallback(() => {
     const now = Date.now();
     if (now - lastDropTimeRef.current > dropTimeRef.current) {
@@ -282,7 +280,6 @@ export default function TetrisGame() {
     }
   }, [movePiece]);
 
-  // Reiniciar juego
   const resetGame = () => {
     setBoard(
       Array(BOARD_HEIGHT)
@@ -297,10 +294,9 @@ export default function TetrisGame() {
     setGameOver(false);
     setIsPlaying(false);
     lastDropTimeRef.current = 0;
-    setShowScoreModal(false); // Asegurarse de que el modal se cierre al reiniciar
+    setShowScoreModal(false);
   };
 
-  // Iniciar juego
   const startGame = () => {
     if (!isPlaying && !gameOver) {
       const newPiece = spawnNewPiece();
@@ -309,7 +305,6 @@ export default function TetrisGame() {
     setIsPlaying(!isPlaying);
   };
 
-  // Game loop
   useEffect(() => {
     if (!isPlaying || gameOver) return;
 
@@ -319,11 +314,10 @@ export default function TetrisGame() {
       drop();
     };
 
-    const intervalId = setInterval(gameLoop, 16); // ~60fps
+    const intervalId = setInterval(gameLoop, 16);
     return () => clearInterval(intervalId);
   }, [isPlaying, gameOver, level, drop]);
 
-  // Controles de teclado
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!isPlaying || gameOver) return;
@@ -361,19 +355,15 @@ export default function TetrisGame() {
 
   const handleSaveScore = async (enteredUserName: string) => {
     if (score > 0) {
-      // Solo guardar si hay puntuación
       await saveScore(enteredUserName, "Tetris", score);
     }
-    setShowScoreModal(false); // Cerrar modal después de guardar
-    resetGame(); // Reiniciar el juego
+    setShowScoreModal(false);
+    resetGame();
   };
 
-  // Renderizar tablero
   const renderBoard = () => {
-    // Crear tablero de visualización combinando tablero estático y pieza actual
     const displayBoard = board.map((row) => [...row]);
 
-    // Agregar pieza actual al tablero de visualización
     if (currentPiece) {
       const shape = getPieceShape(currentPiece);
       const color = TETROMINOES[currentPiece.type].color;
@@ -395,155 +385,230 @@ export default function TetrisGame() {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex flex-col'>
-      <div className='container mx-auto max-w-4xl flex-grow'>
-        {/* Header */}
-        <div className='flex items-center justify-between mb-6'>
-          <Link href='/'>
-            <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'>
-              <ArrowLeft className='h-4 w-4 mr-2' />
-              Volver
-            </Button>
-          </Link>
-          <h1 className='text-3xl font-bold text-white'>Tetris Classic</h1>
-          <div className='w-20'></div>
-        </div>
-
-        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-          {/* Game Board */}
-          <div className='lg:col-span-2'>
-            <Card className='bg-black/40 backdrop-blur-sm border-white/20'>
-              <CardContent className='p-6'>
-                <div className='relative'>
-                  <div
-                    className='grid gap-0 mx-auto bg-gray-900 p-2 border-2 border-purple-400 relative overflow-hidden'
-                    style={{
-                      gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
-                      gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
-                      width: "320px",
-                      height: "640px",
-                    }}
-                  >
-                    {renderBoard().map((row, y) =>
-                      row.map((cell, x) => (
-                        <div
-                          key={`${y}-${x}`}
-                          className='border border-gray-700/30'
-                          style={{
-                            backgroundColor: cell || "#1a1a1a",
-                            width: "30px",
-                            height: "30px",
-                          }}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+    <div className='min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex flex-col'>
+      {/* Header mejorado con mejor espaciado */}
+      <header className='w-full px-4 py-6 sm:px-6 lg:px-8'>
+        <div className='max-w-7xl mx-auto'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center'>
+              Tetris Classic
+            </h1>
+            {/* Spacer para centrar el título */}
+            <div className='w-20 sm:w-24'></div>
           </div>
+        </div>
+      </header>
 
-          {/* Game Info */}
-          <div className='space-y-6'>
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Puntuación</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-3xl font-bold text-purple-400 mb-2'>
-                  {score}
-                </div>
-                <div className='text-sm text-white/60'>Mejor: {highScore}</div>
-              </CardContent>
-            </Card>
-
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Estadísticas</CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-2'>
-                <div className='flex justify-between'>
-                  <span className='text-white/80'>Nivel:</span>
-                  <span className='text-white font-semibold'>{level}</span>
-                </div>
-                <div className='flex justify-between'>
-                  <span className='text-white/80'>Líneas:</span>
-                  <span className='text-white font-semibold'>{lines}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {nextPiece && (
+      {/* Contenido principal con constraints de tamaño */}
+      <main className='flex-1 px-2 sm:px-4 pb-4 overflow-hidden'>
+        <div className='max-w-7xl mx-auto h-full'>
+          <div className='grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6 h-full'>
+            {/* Panel de información - Orden 1 en móvil */}
+            <div className='xl:col-span-1 xl:order-2 space-y-4 sm:space-y-6 overflow-y-auto'>
               <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-                <CardHeader>
-                  <CardTitle className='text-white'>Siguiente</CardTitle>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Puntuación
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className='flex justify-center'>
-                    <div
-                      className='grid gap-1 p-2'
-                      style={{
-                        gridTemplateColumns: `repeat(4, 1fr)`,
-                        backgroundColor: TETROMINOES[nextPiece].color + "20",
-                      }}
-                    >
-                      {TETROMINOES[nextPiece].shape[0].map((_, i) => (
-                        <div
-                          key={i}
-                          className='w-4 h-4'
-                          style={{
-                            backgroundColor: TETROMINOES[nextPiece].color,
-                          }}
-                        />
-                      ))}
-                    </div>
+                  <div className='text-2xl sm:text-3xl font-bold text-purple-400 mb-2'>
+                    {score}
+                  </div>
+                  <div className='text-sm text-white/60'>
+                    Mejor: {highScore}
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
-              <CardHeader>
-                <CardTitle className='text-white'>Controles</CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <Button
-                  onClick={startGame}
-                  className='w-full bg-purple-600 hover:bg-purple-700'
-                  disabled={gameOver}
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className='h-4 w-4 mr-2' />
-                      Pausar
-                    </>
-                  ) : (
-                    <>
-                      <Play className='h-4 w-4 mr-2' />
-                      {gameOver ? "Reiniciar" : "Jugar"}
-                    </>
+              <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Estadísticas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-2'>
+                  <div className='flex justify-between'>
+                    <span className='text-white/80'>Nivel:</span>
+                    <span className='text-white font-semibold'>{level}</span>
+                  </div>
+                  <div className='flex justify-between'>
+                    <span className='text-white/80'>Líneas:</span>
+                    <span className='text-white font-semibold'>{lines}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {nextPiece && (
+                <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                  <CardHeader className='pb-2 sm:pb-4'>
+                    <CardTitle className='text-white text-lg sm:text-xl'>
+                      Siguiente
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='flex justify-center'>
+                      <div
+                        className='grid gap-1 p-2 rounded'
+                        style={{
+                          backgroundColor: TETROMINOES[nextPiece].color + "20",
+                        }}
+                      >
+                        {TETROMINOES[nextPiece].shape.map((row, y) => (
+                          <div key={y} className='flex'>
+                            {row.map((cell, x) => (
+                              <div
+                                key={x}
+                                className='w-3 h-3 sm:w-4 sm:h-4 border'
+                                style={{
+                                  backgroundColor: cell
+                                    ? TETROMINOES[nextPiece].color
+                                    : "transparent",
+                                  borderColor: cell
+                                    ? TETROMINOES[nextPiece].color
+                                    : "transparent",
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+                <CardHeader className='pb-2 sm:pb-4'>
+                  <CardTitle className='text-white text-lg sm:text-xl'>
+                    Controles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-3 sm:space-y-4'>
+                  <Button
+                    onClick={startGame}
+                    className='w-full bg-purple-600 hover:bg-purple-700 text-sm sm:text-base py-2 sm:py-3'
+                    disabled={gameOver}
+                  >
+                    {isPlaying ? (
+                      <>
+                        <Pause className='h-4 w-4 mr-2' />
+                        Pausar
+                      </>
+                    ) : (
+                      <>
+                        <Play className='h-4 w-4 mr-2' />
+                        {gameOver ? "Reiniciar" : "Jugar"}
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={resetGame}
+                    className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base py-2 sm:py-3'
+                  >
+                    <RotateCcw className='h-4 w-4 mr-2' />
+                    Reiniciar
+                  </Button>
+
+                  <div className='text-xs sm:text-sm text-white/60 space-y-1'>
+                    {!isMobile ? (
+                      <>
+                        <p>• ← → Mover pieza</p>
+                        <p>• ↓ Caída rápida</p>
+                        <p>• ↑ / Espacio: Rotar</p>
+                      </>
+                    ) : (
+                      <p>• Usa los botones para mover y rotar</p>
+                    )}
+                    <p>• Completa líneas para puntos</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Game Board - Orden 2 en móvil, centrado y con límites */}
+            <div className='xl:col-span-3 xl:order-1 flex flex-col items-center justify-center min-h-0'>
+              <Card className='bg-black/40 backdrop-blur-sm border-white/20 w-full max-w-sm mx-auto'>
+                <CardContent className='p-2 sm:p-4 lg:p-6'>
+                  {/* Contenedor del juego con aspect ratio fijo */}
+                  <div
+                    className='w-full max-w-xs mx-auto'
+                    style={{ aspectRatio: "1/2" }}
+                  >
+                    <div
+                      className='grid gap-0 bg-gray-900 p-1 border-2 border-purple-400 w-full h-full'
+                      style={{
+                        gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
+                        gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
+                      }}
+                    >
+                      {renderBoard().map((row, y) =>
+                        row.map((cell, x) => (
+                          <div
+                            key={`${y}-${x}`}
+                            className='border border-gray-700/30'
+                            style={{
+                              backgroundColor: cell || "#1a1a1a",
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Controles táctiles para móvil */}
+                  {isMobile && (
+                    <div className='mt-4'>
+                      <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto'>
+                        <Button
+                          onTouchStart={() => movePiece(-1, 0)}
+                          onClick={() => movePiece(-1, 0)}
+                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                          disabled={!isPlaying || gameOver}
+                        >
+                          <ArrowLeftIcon className='h-5 w-5' />
+                        </Button>
+                        <Button
+                          onTouchStart={() => movePiece(0, 1)}
+                          onClick={() => movePiece(0, 1)}
+                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                          disabled={!isPlaying || gameOver}
+                        >
+                          <ArrowDown className='h-5 w-5' />
+                        </Button>
+                        <Button
+                          onTouchStart={() => movePiece(1, 0)}
+                          onClick={() => movePiece(1, 0)}
+                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                          disabled={!isPlaying || gameOver}
+                        >
+                          <ArrowRight className='h-5 w-5' />
+                        </Button>
+                        <Button
+                          onTouchStart={rotatePieceHandler}
+                          onClick={rotatePieceHandler}
+                          className='bg-orange-600 hover:bg-orange-700 active:bg-orange-800 p-2 h-12'
+                          disabled={!isPlaying || gameOver}
+                        >
+                          <RotateCw className='h-5 w-5' />
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                </Button>
-
-                <Button
-                  onClick={resetGame}
-                  className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60'
-                >
-                  <RotateCcw className='h-4 w-4 mr-2' />
-                  Reiniciar
-                </Button>
-
-                <div className='text-sm text-white/60 space-y-1'>
-                  <p>• ← → Mover pieza</p>
-                  <p>• ↓ Caída rápida</p>
-                  <p>• ↑ / Espacio: Rotar</p>
-                  <p>• Completa líneas para puntos</p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
+
       <ScoreModal
         isOpen={showScoreModal}
         onClose={resetGame}
