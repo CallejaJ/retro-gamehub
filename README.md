@@ -658,9 +658,9 @@ copies of the Software...
 
 **⭐ Si te gusta este proyecto, ¡dale una estrella en GitHub! ⭐**
 
-![Retro GameHub](https://via.placeholder.com/600x200/1a1a2e/ffffff?text=Retro+GameHub)
+![Retro GameHub](https://www.svgrepo.com/show/512312/games-776.svg)
 
-Made with ❤️ by [Tu Nombre](https://github.com/callejaj)
+Made with ❤️ by [Jorge Calleja](https://github.com/callejaj)
 
 [🌐 Website](https://www.memento-academy.com) • [📱 Demo](https://retro-gamehub.vercel.app) • [📧 Contact](mailto:callejaj@proton.me)
 
