@@ -100,6 +100,14 @@ export default function TetrisGame() {
   const dropTimeRef = useRef<number>(1000);
   const lastDropTimeRef = useRef<number>(0);
 
+  // Estados para gestos táctiles
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [touchStartTime, setTouchStartTime] = useState<number>(0);
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isFastDrop, setIsFastDrop] = useState(false);
+
   const getRandomTetromino = (): TetrominoType => {
     const types = Object.keys(TETROMINOES) as TetrominoType[];
     return types[Math.floor(Math.random() * types.length)];
