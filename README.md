@@ -658,7 +658,7 @@ copies of the Software...
 
 **⭐ Si te gusta este proyecto, ¡dale una estrella en GitHub! ⭐**
 
-![Retro GameHub](https://www.svgrepo.com/show/512312/games-776.svg)
+<img src="https://www.svgrepo.com/show/512312/games-776.svg" alt="Retro GameHub" width="40">
 
 Made with ❤️ by [Jorge Calleja](https://github.com/callejaj)
 
