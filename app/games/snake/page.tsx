@@ -137,7 +137,7 @@ export default function SnakeGame() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (!isPlaying) return;
+      if (!isPlaying || isMobile) return;
 
       switch (e.key) {
         case "ArrowUp":
@@ -161,7 +161,7 @@ export default function SnakeGame() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isPlaying]);
+  }, [isPlaying, isMobile]);
 
   useEffect(() => {
     const gameInterval = setInterval(moveSnake, 150);
@@ -182,6 +182,193 @@ export default function SnakeGame() {
     resetGame();
   };
 
+  if (isMobile) {
+    // Layout específico para móvil
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 flex flex-col'>
+        {/* Header */}
+        <header className='w-full px-4 py-4'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-xl font-bold text-white'>Snake Classic</h1>
+            <div className='w-16'></div>
+          </div>
+        </header>
+
+        {/* Contenido principal móvil */}
+        <main className='flex-1 px-4 pb-4 flex flex-col'>
+          {/* Game Board */}
+          <Card className='bg-black/40 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='w-full aspect-square max-w-xs mx-auto'>
+                <div
+                  className='grid bg-gray-900 border-2 border-green-400 w-full h-full'
+                  style={{
+                    gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                  }}
+                >
+                  {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(
+                    (_, index) => {
+                      const x = index % GRID_SIZE;
+                      const y = Math.floor(index / GRID_SIZE);
+                      const isSnake = snake.some(
+                        (segment) => segment.x === x && segment.y === y
+                      );
+                      const isFood = food.x === x && food.y === y;
+                      const isHead = snake[0]?.x === x && snake[0]?.y === y;
+
+                      return (
+                        <div
+                          key={index}
+                          className={`border border-gray-800 ${
+                            isSnake
+                              ? isHead
+                                ? "bg-green-400"
+                                : "bg-green-600"
+                              : isFood
+                              ? "bg-red-500"
+                              : "bg-gray-900"
+                          }`}
+                        />
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Controles inmediatamente debajo del juego */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='grid grid-cols-2 gap-3 mb-4'>
+                <Button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className='bg-green-600 hover:bg-green-700 text-sm py-3'
+                  disabled={gameOver}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className='h-4 w-4 mr-2' />
+                      Pausar
+                    </>
+                  ) : (
+                    <>
+                      <Play className='h-4 w-4 mr-2' />
+                      {gameOver ? "Reiniciar" : "Jugar"}
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={resetGame}
+                  className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
+                >
+                  <RotateCcw className='h-4 w-4 mr-2' />
+                  Reiniciar
+                </Button>
+              </div>
+
+              {/* Controles táctiles */}
+              <div className='flex justify-center mb-4'>
+                <div className='grid grid-cols-3 gap-2 w-48'>
+                  <div></div>
+                  <Button
+                    onTouchStart={() => changeDirection("UP")}
+                    onClick={() => changeDirection("UP")}
+                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowUp className='h-6 w-6' />
+                  </Button>
+                  <div></div>
+
+                  <Button
+                    onTouchStart={() => changeDirection("LEFT")}
+                    onClick={() => changeDirection("LEFT")}
+                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowLeftIcon className='h-6 w-6' />
+                  </Button>
+                  <div></div>
+                  <Button
+                    onTouchStart={() => changeDirection("RIGHT")}
+                    onClick={() => changeDirection("RIGHT")}
+                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowRight className='h-6 w-6' />
+                  </Button>
+
+                  <div></div>
+                  <Button
+                    onTouchStart={() => changeDirection("DOWN")}
+                    onClick={() => changeDirection("DOWN")}
+                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowDown className='h-6 w-6' />
+                  </Button>
+                  <div></div>
+                </div>
+              </div>
+
+              {/* Stats compactas */}
+              <div className='grid grid-cols-2 gap-4 text-center'>
+                <div>
+                  <div className='text-2xl font-bold text-green-400'>
+                    {score}
+                  </div>
+                  <div className='text-xs text-white/60'>Puntos</div>
+                </div>
+                <div>
+                  <div className='text-2xl font-bold text-green-300'>
+                    {highScore}
+                  </div>
+                  <div className='text-xs text-white/60'>Mejor</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instrucciones compactas */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+            <CardContent className='p-4'>
+              <div className='text-center'>
+                <p className='text-white/80 text-sm mb-2'>
+                  Controla la serpiente verde 🐍
+                </p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    🍎 Come comida roja = +10 puntos • 💀 Evita paredes y tu
+                    cuerpo
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <ScoreModal
+          isOpen={showScoreModal}
+          onClose={resetGame}
+          score={score}
+          gameName='Snake Classic'
+          hasScoreToSave={score > 0}
+          onSave={handleSaveScore}
+        />
+        <Footer />
+      </div>
+    );
+  }
+
+  // Layout original para desktop
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 flex flex-col'>
       {/* Header mejorado con mejor espaciado */}
@@ -259,11 +446,7 @@ export default function SnakeGame() {
                   </Button>
 
                   <div className='text-xs sm:text-sm text-white/60 space-y-1'>
-                    {!isMobile ? (
-                      <p>• Usa las flechas del teclado para moverte</p>
-                    ) : (
-                      <p>• Usa los botones de dirección para moverte</p>
-                    )}
+                    <p>• Usa las flechas del teclado para moverte</p>
                     <p>• Come la comida roja para crecer</p>
                     <p>• Evita chocar con las paredes o contigo mismo</p>
                   </div>
@@ -327,55 +510,6 @@ export default function SnakeGame() {
                       )}
                     </div>
                   </div>
-
-                  {/* Controles táctiles para móvil */}
-                  {isMobile && (
-                    <div className='mt-4 sm:mt-6'>
-                      <div className='flex justify-center'>
-                        <div className='grid grid-cols-3 gap-2 w-48'>
-                          <div></div>
-                          <Button
-                            onTouchStart={() => changeDirection("UP")}
-                            onClick={() => changeDirection("UP")}
-                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                            disabled={!isPlaying || gameOver}
-                          >
-                            <ArrowUp className='h-6 w-6' />
-                          </Button>
-                          <div></div>
-
-                          <Button
-                            onTouchStart={() => changeDirection("LEFT")}
-                            onClick={() => changeDirection("LEFT")}
-                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                            disabled={!isPlaying || gameOver}
-                          >
-                            <ArrowLeftIcon className='h-6 w-6' />
-                          </Button>
-                          <div></div>
-                          <Button
-                            onTouchStart={() => changeDirection("RIGHT")}
-                            onClick={() => changeDirection("RIGHT")}
-                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                            disabled={!isPlaying || gameOver}
-                          >
-                            <ArrowRight className='h-6 w-6' />
-                          </Button>
-
-                          <div></div>
-                          <Button
-                            onTouchStart={() => changeDirection("DOWN")}
-                            onClick={() => changeDirection("DOWN")}
-                            className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                            disabled={!isPlaying || gameOver}
-                          >
-                            <ArrowDown className='h-6 w-6' />
-                          </Button>
-                          <div></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>

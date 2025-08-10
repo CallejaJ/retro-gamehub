@@ -39,15 +39,18 @@ export default function PongGame() {
   const PADDLE_WIDTH = 10;
   const BALL_SIZE = 10;
 
+  // Detectar si es móvil
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
   // Actualizar tamaño del canvas y elementos según la pantalla
   useEffect(() => {
     const updateCanvasSize = () => {
-      const isMobile = window.innerWidth < 768;
+      const isMobileCheck = window.innerWidth < 768;
       const isTablet = window.innerWidth < 1024;
 
       let newCanvasSize, newPaddleHeight;
 
-      if (isMobile) {
+      if (isMobileCheck) {
         newCanvasSize = {
           width: Math.min(350, window.innerWidth - 40),
           height: 250,
@@ -307,6 +310,161 @@ export default function PongGame() {
     );
   }, [gameState, canvasSize, paddleHeight]);
 
+  if (isMobile) {
+    // Layout específico para móvil
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black flex flex-col'>
+        {/* Header */}
+        <header className='w-full px-4 py-4'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-xl font-bold text-white'>Pong Retro</h1>
+            <div className='w-16'></div>
+          </div>
+        </header>
+
+        {/* Contenido principal móvil */}
+        <main className='flex-1 px-4 pb-4 flex flex-col'>
+          {/* Game Canvas */}
+          <Card className='bg-black/40 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='flex justify-center'>
+                <canvas
+                  ref={canvasRef}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                  className='w-full max-w-full h-auto bg-black border-2 border-white rounded-lg'
+                  style={{
+                    maxWidth: `${canvasSize.width}px`,
+                    aspectRatio: `${canvasSize.width}/${canvasSize.height}`,
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Controles inmediatamente debajo del juego */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='grid grid-cols-2 gap-3 mb-4'>
+                <Button
+                  onClick={() =>
+                    setGameState((prev) => ({
+                      ...prev,
+                      isPlaying: !prev.isPlaying,
+                    }))
+                  }
+                  className='bg-gray-600 hover:bg-gray-700 text-sm py-3'
+                  disabled={gameState.gameOver}
+                >
+                  {gameState.isPlaying ? (
+                    <>
+                      <Pause className='h-4 w-4 mr-2' />
+                      Pausar
+                    </>
+                  ) : (
+                    <>
+                      <Play className='h-4 w-4 mr-2' />
+                      {gameState.gameOver ? "Reiniciar" : "Jugar"}
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={resetGame}
+                  className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
+                >
+                  <RotateCcw className='h-4 w-4 mr-2' />
+                  Reiniciar
+                </Button>
+              </div>
+
+              {/* Controles táctiles */}
+              <div className='flex justify-center gap-4 mb-4'>
+                <div className='flex flex-col gap-2'>
+                  <span className='text-white text-xs text-center mb-1'>
+                    Tu Paleta
+                  </span>
+                  <Button
+                    onTouchStart={movePlayerUp}
+                    onClick={movePlayerUp}
+                    className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
+                    disabled={!gameState.isPlaying || gameState.gameOver}
+                  >
+                    <ArrowUp className='h-6 w-6' />
+                  </Button>
+                  <Button
+                    onTouchStart={movePlayerDown}
+                    onClick={movePlayerDown}
+                    className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
+                    disabled={!gameState.isPlaying || gameState.gameOver}
+                  >
+                    <ArrowDown className='h-6 w-6' />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Stats compactas */}
+              <div className='grid grid-cols-3 gap-4 text-center'>
+                <div>
+                  <div className='text-xl font-bold text-white'>
+                    {gameState.playerScore}
+                  </div>
+                  <div className='text-xs text-white/60'>Tu Score</div>
+                </div>
+                <div>
+                  <div className='text-xl font-bold text-white'>
+                    {gameState.aiScore}
+                  </div>
+                  <div className='text-xs text-white/60'>IA Score</div>
+                </div>
+                <div>
+                  <div className='text-xl font-bold text-gray-300'>
+                    {highScore}
+                  </div>
+                  <div className='text-xs text-white/60'>Mejor</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instrucciones compactas */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+            <CardContent className='p-4'>
+              <div className='text-center'>
+                <p className='text-white/80 text-sm mb-2'>
+                  Controla tu paleta (izquierda) 🏓
+                </p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    🏓 Tu paleta vs IA • ⚡ Primer jugador en 10 gana • 🤖 La IA
+                    se adapta
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <ScoreModal
+          isOpen={showScoreModal}
+          onClose={resetGame}
+          score={gameState.playerScore}
+          gameName='Pong Retro'
+          hasScoreToSave={gameState.playerScore > 0}
+          onSave={handleSaveScore}
+        />
+        <Footer />
+      </div>
+    );
+  }
+
+  // Layout original para desktop
   return (
     <div className='min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black p-2 sm:p-4 flex flex-col'>
       <div className='container mx-auto max-w-7xl flex-grow'>

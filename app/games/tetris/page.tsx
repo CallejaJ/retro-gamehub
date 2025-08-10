@@ -320,7 +320,7 @@ export default function TetrisGame() {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (!isPlaying || gameOver) return;
+      if (!isPlaying || gameOver || isMobile) return;
 
       switch (e.key) {
         case "ArrowLeft":
@@ -345,7 +345,7 @@ export default function TetrisGame() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isPlaying, gameOver, movePiece, rotatePieceHandler]);
+  }, [isPlaying, gameOver, movePiece, rotatePieceHandler, isMobile]);
 
   useEffect(() => {
     if (gameOver) {
@@ -384,6 +384,209 @@ export default function TetrisGame() {
     return displayBoard;
   };
 
+  if (isMobile) {
+    // Layout específico para móvil
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex flex-col'>
+        {/* Header */}
+        <header className='w-full px-4 py-4'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-xl font-bold text-white'>Tetris Classic</h1>
+            <div className='w-16'></div>
+          </div>
+        </header>
+
+        {/* Contenido principal móvil */}
+        <main className='flex-1 px-4 pb-4 flex flex-col'>
+          {/* Game Board */}
+          <Card className='bg-black/40 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div
+                className='w-full max-w-xs mx-auto'
+                style={{ aspectRatio: "1/2" }}
+              >
+                <div
+                  className='grid gap-0 bg-gray-900 p-1 border-2 border-purple-400 w-full h-full'
+                  style={{
+                    gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
+                    gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
+                  }}
+                >
+                  {renderBoard().map((row, y) =>
+                    row.map((cell, x) => (
+                      <div
+                        key={`${y}-${x}`}
+                        className='border border-gray-700/30'
+                        style={{
+                          backgroundColor: cell || "#1a1a1a",
+                        }}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Controles inmediatamente debajo del juego */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='grid grid-cols-2 gap-3 mb-4'>
+                <Button
+                  onClick={startGame}
+                  className='bg-purple-600 hover:bg-purple-700 text-sm py-3'
+                  disabled={gameOver}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className='h-4 w-4 mr-2' />
+                      Pausar
+                    </>
+                  ) : (
+                    <>
+                      <Play className='h-4 w-4 mr-2' />
+                      {gameOver ? "Reiniciar" : "Jugar"}
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={resetGame}
+                  className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
+                >
+                  <RotateCcw className='h-4 w-4 mr-2' />
+                  Reiniciar
+                </Button>
+              </div>
+
+              {/* Controles táctiles */}
+              <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto mb-4'>
+                <Button
+                  onTouchStart={() => movePiece(-1, 0)}
+                  onClick={() => movePiece(-1, 0)}
+                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                  disabled={!isPlaying || gameOver}
+                >
+                  <ArrowLeftIcon className='h-5 w-5' />
+                </Button>
+                <Button
+                  onTouchStart={() => movePiece(0, 1)}
+                  onClick={() => movePiece(0, 1)}
+                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                  disabled={!isPlaying || gameOver}
+                >
+                  <ArrowDown className='h-5 w-5' />
+                </Button>
+                <Button
+                  onTouchStart={() => movePiece(1, 0)}
+                  onClick={() => movePiece(1, 0)}
+                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
+                  disabled={!isPlaying || gameOver}
+                >
+                  <ArrowRight className='h-5 w-5' />
+                </Button>
+                <Button
+                  onTouchStart={rotatePieceHandler}
+                  onClick={rotatePieceHandler}
+                  className='bg-orange-600 hover:bg-orange-700 active:bg-orange-800 p-2 h-12'
+                  disabled={!isPlaying || gameOver}
+                >
+                  <RotateCw className='h-5 w-5' />
+                </Button>
+              </div>
+
+              {/* Stats compactas */}
+              <div className='grid grid-cols-3 gap-4 text-center mb-4'>
+                <div>
+                  <div className='text-xl font-bold text-purple-400'>
+                    {score}
+                  </div>
+                  <div className='text-xs text-white/60'>Puntos</div>
+                </div>
+                <div>
+                  <div className='text-xl font-bold text-white'>{level}</div>
+                  <div className='text-xs text-white/60'>Nivel</div>
+                </div>
+                <div>
+                  <div className='text-xl font-bold text-white'>{lines}</div>
+                  <div className='text-xs text-white/60'>Líneas</div>
+                </div>
+              </div>
+
+              {/* Siguiente pieza si existe */}
+              {nextPiece && (
+                <div className='text-center'>
+                  <div className='text-white text-sm mb-2'>Siguiente:</div>
+                  <div className='flex justify-center'>
+                    <div
+                      className='grid gap-1 p-2 rounded'
+                      style={{
+                        backgroundColor: TETROMINOES[nextPiece].color + "20",
+                      }}
+                    >
+                      {TETROMINOES[nextPiece].shape.map((row, y) => (
+                        <div key={y} className='flex'>
+                          {row.map((cell, x) => (
+                            <div
+                              key={x}
+                              className='w-3 h-3 border'
+                              style={{
+                                backgroundColor: cell
+                                  ? TETROMINOES[nextPiece].color
+                                  : "transparent",
+                                borderColor: cell
+                                  ? TETROMINOES[nextPiece].color
+                                  : "transparent",
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Instrucciones compactas */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+            <CardContent className='p-4'>
+              <div className='text-center'>
+                <p className='text-white/80 text-sm mb-2'>
+                  Encaja las piezas 🧩
+                </p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    🔄 Rota piezas • ⬇️ Acelera caída • 🧱 Completa líneas para
+                    puntos
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <ScoreModal
+          isOpen={showScoreModal}
+          onClose={resetGame}
+          score={score}
+          gameName='Tetris Classic'
+          hasScoreToSave={score > 0}
+          onSave={handleSaveScore}
+        />
+        <Footer />
+      </div>
+    );
+  }
+
+  // Layout original para desktop
   return (
     <div className='min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex flex-col'>
       {/* Header mejorado con mejor espaciado */}
@@ -518,15 +721,9 @@ export default function TetrisGame() {
                   </Button>
 
                   <div className='text-xs sm:text-sm text-white/60 space-y-1'>
-                    {!isMobile ? (
-                      <>
-                        <p>• ← → Mover pieza</p>
-                        <p>• ↓ Caída rápida</p>
-                        <p>• ↑ / Espacio: Rotar</p>
-                      </>
-                    ) : (
-                      <p>• Usa los botones para mover y rotar</p>
-                    )}
+                    <p>• ← → Mover pieza</p>
+                    <p>• ↓ Caída rápida</p>
+                    <p>• ↑ / Espacio: Rotar</p>
                     <p>• Completa líneas para puntos</p>
                   </div>
                 </CardContent>
@@ -562,46 +759,6 @@ export default function TetrisGame() {
                       )}
                     </div>
                   </div>
-
-                  {/* Controles táctiles para móvil */}
-                  {isMobile && (
-                    <div className='mt-4'>
-                      <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto'>
-                        <Button
-                          onTouchStart={() => movePiece(-1, 0)}
-                          onClick={() => movePiece(-1, 0)}
-                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                          disabled={!isPlaying || gameOver}
-                        >
-                          <ArrowLeftIcon className='h-5 w-5' />
-                        </Button>
-                        <Button
-                          onTouchStart={() => movePiece(0, 1)}
-                          onClick={() => movePiece(0, 1)}
-                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                          disabled={!isPlaying || gameOver}
-                        >
-                          <ArrowDown className='h-5 w-5' />
-                        </Button>
-                        <Button
-                          onTouchStart={() => movePiece(1, 0)}
-                          onClick={() => movePiece(1, 0)}
-                          className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                          disabled={!isPlaying || gameOver}
-                        >
-                          <ArrowRight className='h-5 w-5' />
-                        </Button>
-                        <Button
-                          onTouchStart={rotatePieceHandler}
-                          onClick={rotatePieceHandler}
-                          className='bg-orange-600 hover:bg-orange-700 active:bg-orange-800 p-2 h-12'
-                          disabled={!isPlaying || gameOver}
-                        >
-                          <RotateCw className='h-5 w-5' />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>

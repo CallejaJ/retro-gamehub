@@ -265,6 +265,147 @@ export default function FruitNinjaGame() {
     }
   }, [fruits, mousePos, isSlicing, canvasSize]);
 
+  if (isMobile) {
+    // Layout específico para móvil
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900 flex flex-col'>
+        {/* Header */}
+        <header className='w-full px-4 py-4'>
+          <div className='flex items-center justify-between'>
+            <Link href='/'>
+              <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
+                <ArrowLeft className='h-4 w-4 mr-2' />
+                Volver
+              </Button>
+            </Link>
+            <h1 className='text-xl font-bold text-white'>Fruit Ninja</h1>
+            <div className='w-16'></div>
+          </div>
+        </header>
+
+        {/* Contenido principal móvil */}
+        <main className='flex-1 px-4 pb-4 flex flex-col'>
+          {/* Game Canvas */}
+          <Card className='bg-black/40 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='flex justify-center'>
+                <canvas
+                  ref={canvasRef}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                  className='w-full max-w-full h-auto bg-gradient-to-b from-blue-900 to-purple-900 rounded-lg cursor-crosshair touch-none border-2 border-white/20'
+                  style={{
+                    maxWidth: `${canvasSize.width}px`,
+                    aspectRatio: `${canvasSize.width}/${canvasSize.height}`,
+                  }}
+                  onMouseMove={handlePointerMove}
+                  onMouseDown={handlePointerDown}
+                  onMouseUp={handlePointerUp}
+                  onMouseLeave={handlePointerUp}
+                  onTouchStart={handlePointerDown}
+                  onTouchMove={handlePointerMove}
+                  onTouchEnd={handlePointerUp}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Controles inmediatamente debajo del juego */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20 mb-4'>
+            <CardContent className='p-4'>
+              <div className='grid grid-cols-2 gap-3 mb-4'>
+                <Button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className='bg-orange-600 hover:bg-orange-700 text-sm py-3'
+                  disabled={gameOver}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className='h-4 w-4 mr-2' />
+                      Pausar
+                    </>
+                  ) : (
+                    <>
+                      <Play className='h-4 w-4 mr-2' />
+                      {gameOver ? "Reiniciar" : "Jugar"}
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={resetGame}
+                  className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
+                >
+                  <RotateCcw className='h-4 w-4 mr-2' />
+                  Reiniciar
+                </Button>
+              </div>
+
+              {/* Stats compactas */}
+              <div className='grid grid-cols-3 gap-4 text-center'>
+                <div>
+                  <div className='text-xl font-bold text-orange-400'>
+                    {score}
+                  </div>
+                  <div className='text-xs text-white/60'>Puntos</div>
+                </div>
+                <div>
+                  <div className='flex space-x-1 justify-center'>
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`text-lg ${
+                          i < lives ? "opacity-100" : "opacity-30"
+                        }`}
+                      >
+                        ❤️
+                      </div>
+                    ))}
+                  </div>
+                  <div className='text-xs text-white/60'>Vidas</div>
+                </div>
+                <div>
+                  <div className='text-xl font-bold text-orange-300'>
+                    {highScore}
+                  </div>
+                  <div className='text-xs text-white/60'>Mejor</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Instrucciones compactas */}
+          <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
+            <CardContent className='p-4'>
+              <div className='text-center'>
+                <p className='text-white/80 text-sm mb-2'>
+                  Toca y arrastra para cortar las frutas 🍎
+                </p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    🍎 Corta frutas = +10 puntos • 💣 Evita bombas • ❤️ No dejes
+                    caer frutas
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <ScoreModal
+          isOpen={showScoreModal}
+          onClose={resetGame}
+          score={score}
+          gameName='Fruit Ninja'
+          hasScoreToSave={score > 0}
+          onSave={handleSaveScore}
+        />
+        <Footer />
+      </div>
+    );
+  }
+
+  // Layout original para desktop
   return (
     <div className='min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900 flex flex-col'>
       {/* Header mejorado con mejor espaciado */}
@@ -364,11 +505,7 @@ export default function FruitNinjaGame() {
                   </Button>
 
                   <div className='text-xs sm:text-sm text-white/60 space-y-1'>
-                    {!isMobile ? (
-                      <p>• Mueve el mouse para cortar frutas</p>
-                    ) : (
-                      <p>• Toca y arrastra para cortar frutas</p>
-                    )}
+                    <p>• Mueve el mouse para cortar frutas</p>
                     <p>• Evita las bombas 💣</p>
                     <p>• No dejes caer las frutas</p>
                   </div>
@@ -415,18 +552,6 @@ export default function FruitNinjaGame() {
                       onTouchEnd={handlePointerUp}
                     />
                   </div>
-
-                  {/* Instrucciones para móvil */}
-                  {isMobile && (
-                    <div className='mt-4 text-center'>
-                      <p className='text-white/80 text-sm'>
-                        Toca y arrastra para cortar las frutas 🍎
-                      </p>
-                      <p className='text-white/60 text-xs mt-1'>
-                        Evita las bombas 💣 y no dejes caer las frutas
-                      </p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
