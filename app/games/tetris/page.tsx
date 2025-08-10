@@ -282,11 +282,124 @@ export default function TetrisGame() {
 
   const drop = useCallback(() => {
     const now = Date.now();
-    if (now - lastDropTimeRef.current > dropTimeRef.current) {
+    const currentDropTime = isFastDrop ? 50 : dropTimeRef.current;
+
+    if (now - lastDropTimeRef.current > currentDropTime) {
       movePiece(0, 1);
       lastDropTimeRef.current = now;
     }
-  }, [movePiece]);
+  }, [movePiece, isFastDrop]);
+
+  // Gestores de eventos táctiles
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isPlaying || gameOver) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.touches[0];
+      setTouchStart({ x: touch.clientX, y: touch.clientY });
+      setTouchStartTime(Date.now());
+
+      console.log("Touch start:", { x: touch.clientX, y: touch.clientY });
+
+      // Hold para caída rápida
+      holdTimerRef.current = setTimeout(() => {
+        console.log("Fast drop activated");
+        setIsFastDrop(true);
+      }, 300);
+    },
+    [isPlaying, gameOver]
+  );
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isPlaying || gameOver || !touchStart) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.changedTouches[0];
+      const touchDuration = Date.now() - touchStartTime;
+
+      console.log("Touch end:", {
+        x: touch.clientX,
+        y: touch.clientY,
+        duration: touchDuration,
+      });
+
+      // Limpiar timer de hold
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      setIsFastDrop(false);
+
+      // Si fue un hold largo, no procesar como gesto
+      if (touchDuration > 300) {
+        console.log("Long hold detected, skipping gesture");
+        setTouchStart(null);
+        return;
+      }
+
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      const minSwipeDistance = 30;
+
+      console.log("Gesture detected:", { deltaX, deltaY, minSwipeDistance });
+
+      // Determinar tipo de gesto
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Movimiento horizontal
+        if (Math.abs(deltaX) > minSwipeDistance) {
+          if (deltaX > 0) {
+            console.log("Move right");
+            movePiece(1, 0);
+          } else {
+            console.log("Move left");
+            movePiece(-1, 0);
+          }
+        } else {
+          console.log("Rotate (horizontal tap)");
+          rotatePieceHandler();
+        }
+      } else {
+        // Movimiento vertical
+        if (deltaY > minSwipeDistance) {
+          console.log("Move down");
+          movePiece(0, 1);
+        } else if (Math.abs(deltaY) < minSwipeDistance) {
+          console.log("Rotate (vertical tap)");
+          rotatePieceHandler();
+        }
+      }
+
+      setTouchStart(null);
+    },
+    [
+      isPlaying,
+      gameOver,
+      touchStart,
+      touchStartTime,
+      movePiece,
+      rotatePieceHandler,
+    ]
+  );
+
+  // Limpiar timer al desmontar
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+    };
+  }, []);
 
   const resetGame = () => {
     setBoard(
@@ -420,11 +533,15 @@ export default function TetrisGame() {
                 style={{ aspectRatio: "1/2" }}
               >
                 <div
-                  className='grid gap-0 bg-gray-900 p-1 border-2 border-purple-400 w-full h-full'
+                  className='grid gap-0 bg-gray-900 p-1 border-2 border-purple-400 w-full h-full touch-none select-none relative'
                   style={{
                     gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
                     gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
+                    touchAction: "none",
                   }}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                 >
                   {renderBoard().map((row, y) =>
                     row.map((cell, x) => (
@@ -436,6 +553,15 @@ export default function TetrisGame() {
                         }}
                       />
                     ))
+                  )}
+
+                  {/* Indicador visual de gestos */}
+                  {isFastDrop && (
+                    <div className='absolute inset-0 bg-blue-500/20 border-2 border-blue-400 rounded animate-pulse flex items-center justify-center'>
+                      <div className='text-white font-bold text-lg'>
+                        ⚡ FAST DROP
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -473,41 +599,64 @@ export default function TetrisGame() {
                 </Button>
               </div>
 
-              {/* Controles táctiles */}
-              <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto mb-4'>
-                <Button
-                  onTouchStart={() => movePiece(-1, 0)}
-                  onClick={() => movePiece(-1, 0)}
-                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                  disabled={!isPlaying || gameOver}
-                >
-                  <ArrowLeftIcon className='h-5 w-5' />
-                </Button>
-                <Button
-                  onTouchStart={() => movePiece(0, 1)}
-                  onClick={() => movePiece(0, 1)}
-                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                  disabled={!isPlaying || gameOver}
-                >
-                  <ArrowDown className='h-5 w-5' />
-                </Button>
-                <Button
-                  onTouchStart={() => movePiece(1, 0)}
-                  onClick={() => movePiece(1, 0)}
-                  className='bg-purple-600 hover:bg-purple-700 active:bg-purple-800 p-2 h-12'
-                  disabled={!isPlaying || gameOver}
-                >
-                  <ArrowRight className='h-5 w-5' />
-                </Button>
-                <Button
-                  onTouchStart={rotatePieceHandler}
-                  onClick={rotatePieceHandler}
-                  className='bg-orange-600 hover:bg-orange-700 active:bg-orange-800 p-2 h-12'
-                  disabled={!isPlaying || gameOver}
-                >
-                  <RotateCw className='h-5 w-5' />
-                </Button>
+              {/* Instrucciones de gestos para móvil */}
+              <div className='mt-4 text-center'>
+                <p className='text-white/80 text-sm mb-2'>
+                  Controles táctiles 🎮
+                </p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    👆 <strong>Tap</strong> = Rotar pieza
+                  </p>
+                  <p>
+                    👈👉 <strong>Swipe horizontal</strong> = Mover
+                    izquierda/derecha
+                  </p>
+                  <p>
+                    👇 <strong>Swipe abajo</strong> = Caída rápida
+                  </p>
+                  <p>
+                    ✋ <strong>Hold</strong> = Caída súper rápida
+                  </p>
+                </div>
               </div>
+
+              {/* Controles táctiles solo como respaldo */}
+              <details className='mt-4'>
+                <summary className='text-white/60 text-sm cursor-pointer'>
+                  🎮 Mostrar botones de respaldo
+                </summary>
+                <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto mt-3'>
+                  <Button
+                    onClick={() => movePiece(-1, 0)}
+                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowLeftIcon className='h-4 w-4' />
+                  </Button>
+                  <Button
+                    onClick={() => movePiece(0, 1)}
+                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowDown className='h-4 w-4' />
+                  </Button>
+                  <Button
+                    onClick={() => movePiece(1, 0)}
+                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <ArrowRight className='h-4 w-4' />
+                  </Button>
+                  <Button
+                    onClick={rotatePieceHandler}
+                    className='bg-orange-600/50 hover:bg-orange-700/50 p-2 h-10 text-xs'
+                    disabled={!isPlaying || gameOver}
+                  >
+                    <RotateCw className='h-4 w-4' />
+                  </Button>
+                </div>
+              </details>
 
               {/* Stats compactas */}
               <div className='grid grid-cols-3 gap-4 text-center mb-4'>
@@ -572,7 +721,11 @@ export default function TetrisGame() {
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
-                    🔄 Rota piezas • ⬇️ Acelera caída • 🧱 Completa líneas para
+                    👆 Tap para rotar • 👈👉 Swipe para mover • 👇 Swipe para
+                    acelerar
+                  </p>
+                  <p>
+                    ✋ Hold para caída súper rápida • 🧱 Completa líneas para
                     puntos
                   </p>
                 </div>
