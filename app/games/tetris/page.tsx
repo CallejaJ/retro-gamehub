@@ -302,11 +302,8 @@ export default function TetrisGame() {
       setTouchStart({ x: touch.clientX, y: touch.clientY });
       setTouchStartTime(Date.now());
 
-      console.log("Touch start:", { x: touch.clientX, y: touch.clientY });
-
       // Hold para caída rápida
       holdTimerRef.current = setTimeout(() => {
-        console.log("Fast drop activated");
         setIsFastDrop(true);
       }, 300);
     },
@@ -328,12 +325,6 @@ export default function TetrisGame() {
       const touch = e.changedTouches[0];
       const touchDuration = Date.now() - touchStartTime;
 
-      console.log("Touch end:", {
-        x: touch.clientX,
-        y: touch.clientY,
-        duration: touchDuration,
-      });
-
       // Limpiar timer de hold
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
@@ -343,7 +334,6 @@ export default function TetrisGame() {
 
       // Si fue un hold largo, no procesar como gesto
       if (touchDuration > 300) {
-        console.log("Long hold detected, skipping gesture");
         setTouchStart(null);
         return;
       }
@@ -352,30 +342,25 @@ export default function TetrisGame() {
       const deltaY = touch.clientY - touchStart.y;
       const minSwipeDistance = 30;
 
-      console.log("Gesture detected:", { deltaX, deltaY, minSwipeDistance });
-
       // Determinar tipo de gesto
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
         // Movimiento horizontal
         if (Math.abs(deltaX) > minSwipeDistance) {
           if (deltaX > 0) {
-            console.log("Move right");
-            movePiece(1, 0);
+            movePiece(1, 0); // Derecha
           } else {
-            console.log("Move left");
-            movePiece(-1, 0);
+            movePiece(-1, 0); // Izquierda
           }
         } else {
-          console.log("Rotate (horizontal tap)");
+          // Tap pequeño = rotar
           rotatePieceHandler();
         }
       } else {
         // Movimiento vertical
         if (deltaY > minSwipeDistance) {
-          console.log("Move down");
-          movePiece(0, 1);
+          movePiece(0, 1); // Abajo (caída rápida)
         } else if (Math.abs(deltaY) < minSwipeDistance) {
-          console.log("Rotate (vertical tap)");
+          // Tap vertical = rotar
           rotatePieceHandler();
         }
       }
