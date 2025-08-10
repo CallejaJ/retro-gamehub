@@ -656,12 +656,20 @@ copies of the Software...
 
 <div align="center">
 
-**⭐ Si te gusta este proyecto, ¡dale una estrella en GitHub! ⭐**
+---
 
-<img src="https://www.svgrepo.com/show/512312/games-776.svg" alt="Retro GameHub" width="40">
+<table>
+<tr>
+<td align="center">
+<img src="https://www.svgrepo.com/show/512312/games-776.svg" alt="Retro GameHub" width="50"><br/>
+<strong>Retro GameHub</strong><br/>
+<sub>Made with ❤️ by <a href="https://github.com/callejaj">Jorge Calleja</a></sub>
+</td>
+</tr>
+</table>
 
-Made with ❤️ by [Jorge Calleja](https://github.com/callejaj)
+⭐ **[Dale una estrella en GitHub](https://github.com/callejaj/retro-gamehub)** ⭐
 
-[🌐 Website](https://www.memento-academy.com) • [📱 Demo](https://retro-gamehub.vercel.app) • [📧 Contact](mailto:callejaj@proton.me)
+**Links:** [🌐 Website](https://www.memento-academy.com) • [🎮 Demo](https://retro-gamehub.vercel.app) • [📧 Contact](mailto:callejaj@proton.me)
 
 </div>
