@@ -3,14 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowLeft,
-  RotateCcw,
-  Play,
-  Pause,
-  ArrowUp,
-  ArrowDown,
-} from "lucide-react";
+import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
@@ -35,6 +28,10 @@ export default function PongGame() {
   const [highScore, setHighScore] = useState(0);
   const keysPressed = useRef<Set<string>>(new Set());
   const [showScoreModal, setShowScoreModal] = useState(false);
+
+  // Estados para controles táctiles
+  const [touchY, setTouchY] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const PADDLE_WIDTH = 10;
   const BALL_SIZE = 10;
@@ -98,22 +95,65 @@ export default function PongGame() {
     setShowScoreModal(false);
   };
 
-  // Funciones para controles móviles
-  const movePlayerUp = () => {
-    if (!gameState.isPlaying || gameState.gameOver) return;
-    setGameState((prev) => ({
-      ...prev,
-      playerY: Math.max(0, prev.playerY - 15),
-    }));
-  };
+  // Gestores de eventos táctiles para el canvas
+  const handleCanvasTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!gameState.isPlaying || gameState.gameOver) return;
 
-  const movePlayerDown = () => {
-    if (!gameState.isPlaying || gameState.gameOver) return;
-    setGameState((prev) => ({
-      ...prev,
-      playerY: Math.min(canvasSize.height - paddleHeight, prev.playerY + 15),
-    }));
-  };
+      e.preventDefault();
+      e.stopPropagation();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const relativeY =
+        ((touch.clientY - rect.top) / rect.height) * canvasSize.height;
+
+      setTouchY(relativeY);
+      setIsDragging(true);
+    },
+    [gameState.isPlaying, gameState.gameOver, canvasSize.height]
+  );
+
+  const handleCanvasTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!gameState.isPlaying || gameState.gameOver || !isDragging) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const relativeY =
+        ((touch.clientY - rect.top) / rect.height) * canvasSize.height;
+
+      setTouchY(relativeY);
+
+      // Actualizar posición de la paleta del jugador
+      const newPaddleY = Math.max(
+        0,
+        Math.min(canvasSize.height - paddleHeight, relativeY - paddleHeight / 2)
+      );
+      setGameState((prev) => ({ ...prev, playerY: newPaddleY }));
+    },
+    [
+      gameState.isPlaying,
+      gameState.gameOver,
+      isDragging,
+      canvasSize.height,
+      paddleHeight,
+    ]
+  );
+
+  const handleCanvasTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    setTouchY(null);
+  }, []);
 
   const updateGame = useCallback(() => {
     if (!gameState.isPlaying || gameState.gameOver) return;
@@ -308,7 +348,19 @@ export default function PongGame() {
       (3 * canvasSize.width) / 4,
       fontSize + 10
     );
-  }, [gameState, canvasSize, paddleHeight]);
+
+    // Draw touch indicator if dragging
+    if (isDragging && touchY !== null) {
+      ctx.strokeStyle = "#ffff00";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(0, touchY);
+      ctx.lineTo(PADDLE_WIDTH * 3, touchY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }, [gameState, canvasSize, paddleHeight, isDragging, touchY]);
 
   if (isMobile) {
     // Layout específico para móvil
@@ -320,7 +372,7 @@ export default function PongGame() {
             <Link href='/'>
               <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
                 <ArrowLeft className='h-4 w-4 mr-2' />
-                Volver
+                Back
               </Button>
             </Link>
             <h1 className='text-xl font-bold text-white'>Pong Retro</h1>
@@ -338,12 +390,28 @@ export default function PongGame() {
                   ref={canvasRef}
                   width={canvasSize.width}
                   height={canvasSize.height}
-                  className='w-full max-w-full h-auto bg-black border-2 border-white rounded-lg'
+                  className='w-full max-w-full h-auto bg-black border-2 border-white rounded-lg touch-none select-none'
                   style={{
                     maxWidth: `${canvasSize.width}px`,
                     aspectRatio: `${canvasSize.width}/${canvasSize.height}`,
+                    touchAction: "none",
                   }}
+                  onTouchStart={handleCanvasTouchStart}
+                  onTouchMove={handleCanvasTouchMove}
+                  onTouchEnd={handleCanvasTouchEnd}
                 />
+              </div>
+
+              {/* Instrucciones de control táctil */}
+              <div className='mt-4 text-center'>
+                <p className='text-white/80 text-sm mb-2'>Touch Controls 🎮</p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    👆👇 <strong>Touch and drag</strong> = Move your paddle
+                    (left)
+                  </p>
+                  <p>🏓 Follow the ball position to defend your side</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -365,12 +433,12 @@ export default function PongGame() {
                   {gameState.isPlaying ? (
                     <>
                       <Pause className='h-4 w-4 mr-2' />
-                      Pausar
+                      Pause
                     </>
                   ) : (
                     <>
                       <Play className='h-4 w-4 mr-2' />
-                      {gameState.gameOver ? "Reiniciar" : "Jugar"}
+                      {gameState.gameOver ? "Restart" : "Play"}
                     </>
                   )}
                 </Button>
@@ -380,33 +448,8 @@ export default function PongGame() {
                   className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
                 >
                   <RotateCcw className='h-4 w-4 mr-2' />
-                  Reiniciar
+                  Reset
                 </Button>
-              </div>
-
-              {/* Controles táctiles */}
-              <div className='flex justify-center gap-4 mb-4'>
-                <div className='flex flex-col gap-2'>
-                  <span className='text-white text-xs text-center mb-1'>
-                    Tu Paleta
-                  </span>
-                  <Button
-                    onTouchStart={movePlayerUp}
-                    onClick={movePlayerUp}
-                    className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
-                    disabled={!gameState.isPlaying || gameState.gameOver}
-                  >
-                    <ArrowUp className='h-6 w-6' />
-                  </Button>
-                  <Button
-                    onTouchStart={movePlayerDown}
-                    onClick={movePlayerDown}
-                    className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
-                    disabled={!gameState.isPlaying || gameState.gameOver}
-                  >
-                    <ArrowDown className='h-6 w-6' />
-                  </Button>
-                </div>
               </div>
 
               {/* Stats compactas */}
@@ -415,19 +458,19 @@ export default function PongGame() {
                   <div className='text-xl font-bold text-white'>
                     {gameState.playerScore}
                   </div>
-                  <div className='text-xs text-white/60'>Tu Score</div>
+                  <div className='text-xs text-white/60'>Your Score</div>
                 </div>
                 <div>
                   <div className='text-xl font-bold text-white'>
                     {gameState.aiScore}
                   </div>
-                  <div className='text-xs text-white/60'>IA Score</div>
+                  <div className='text-xs text-white/60'>AI Score</div>
                 </div>
                 <div>
                   <div className='text-xl font-bold text-gray-300'>
                     {highScore}
                   </div>
-                  <div className='text-xs text-white/60'>Mejor</div>
+                  <div className='text-xs text-white/60'>Best</div>
                 </div>
               </div>
             </CardContent>
@@ -438,12 +481,12 @@ export default function PongGame() {
             <CardContent className='p-4'>
               <div className='text-center'>
                 <p className='text-white/80 text-sm mb-2'>
-                  Controla tu paleta (izquierda) 🏓
+                  Control your paddle (left side) 🏓
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
-                    🏓 Tu paleta vs IA • ⚡ Primer jugador en 10 gana • 🤖 La IA
-                    se adapta
+                    🏓 You vs AI • ⚡ First to 10 wins • 🤖 AI adapts to your
+                    play
                   </p>
                 </div>
               </div>
@@ -473,7 +516,7 @@ export default function PongGame() {
           <Link href='/'>
             <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base'>
               <ArrowLeft className='h-4 w-4 mr-2' />
-              Volver
+              Back
             </Button>
           </Link>
           <h1 className='text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center flex-1'>
@@ -499,42 +542,6 @@ export default function PongGame() {
                     }}
                   />
                 </div>
-
-                {/* Controles táctiles para móvil */}
-                <div className='block md:hidden'>
-                  <div className='flex justify-center gap-4'>
-                    <div className='flex flex-col gap-2'>
-                      <span className='text-white text-xs text-center mb-1'>
-                        Tu Paleta
-                      </span>
-                      <Button
-                        onTouchStart={movePlayerUp}
-                        onClick={movePlayerUp}
-                        className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
-                        disabled={!gameState.isPlaying || gameState.gameOver}
-                      >
-                        <ArrowUp className='h-6 w-6' />
-                      </Button>
-                      <Button
-                        onTouchStart={movePlayerDown}
-                        onClick={movePlayerDown}
-                        className='bg-gray-600 hover:bg-gray-700 active:bg-gray-800 p-3 h-12 w-16'
-                        disabled={!gameState.isPlaying || gameState.gameOver}
-                      >
-                        <ArrowDown className='h-6 w-6' />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className='mt-4 text-center'>
-                    <p className='text-white/80 text-sm'>
-                      Controla tu paleta (izquierda) 🏓
-                    </p>
-                    <p className='text-white/60 text-xs mt-1'>
-                      Evita que la pelota pase por tu lado
-                    </p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -544,7 +551,7 @@ export default function PongGame() {
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
               <CardHeader className='pb-2 sm:pb-4'>
                 <CardTitle className='text-white text-lg sm:text-xl'>
-                  Puntuación
+                  Score
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -552,10 +559,8 @@ export default function PongGame() {
                   <div className='text-xl sm:text-2xl font-bold text-white'>
                     {gameState.playerScore} - {gameState.aiScore}
                   </div>
-                  <div className='text-sm text-white/60'>
-                    Mejor: {highScore}
-                  </div>
-                  <div className='text-xs text-white/50'>(Tu - IA)</div>
+                  <div className='text-sm text-white/60'>Best: {highScore}</div>
+                  <div className='text-xs text-white/50'>(You - AI)</div>
                 </div>
               </CardContent>
             </Card>
@@ -563,7 +568,7 @@ export default function PongGame() {
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
               <CardHeader className='pb-2 sm:pb-4'>
                 <CardTitle className='text-white text-lg sm:text-xl'>
-                  Controles
+                  Controls
                 </CardTitle>
               </CardHeader>
               <CardContent className='space-y-3 sm:space-y-4'>
@@ -580,12 +585,12 @@ export default function PongGame() {
                   {gameState.isPlaying ? (
                     <>
                       <Pause className='h-4 w-4 mr-2' />
-                      Pausar
+                      Pause
                     </>
                   ) : (
                     <>
                       <Play className='h-4 w-4 mr-2' />
-                      {gameState.gameOver ? "Reiniciar" : "Jugar"}
+                      {gameState.gameOver ? "Restart" : "Play"}
                     </>
                   )}
                 </Button>
@@ -595,16 +600,13 @@ export default function PongGame() {
                   className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base py-2 sm:py-3'
                 >
                   <RotateCcw className='h-4 w-4 mr-2' />
-                  Reiniciar
+                  Reset
                 </Button>
 
                 <div className='text-xs sm:text-sm text-white/60 space-y-1'>
-                  <p className='hidden md:block'>• ↑ ↓ Mover paleta</p>
-                  <p className='md:hidden'>
-                    • Usa los botones para mover tu paleta
-                  </p>
-                  <p>• Primer jugador en llegar a 10 gana</p>
-                  <p>• La pelota acelera con cada golpe</p>
+                  <p>• ↑ ↓ Move paddle</p>
+                  <p>• First player to 10 wins</p>
+                  <p>• Ball speeds up with each hit</p>
                 </div>
               </CardContent>
             </Card>
@@ -612,15 +614,15 @@ export default function PongGame() {
             <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
               <CardHeader className='pb-2 sm:pb-4'>
                 <CardTitle className='text-white text-lg sm:text-xl'>
-                  Instrucciones
+                  Instructions
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className='text-xs sm:text-sm text-white/80 space-y-2'>
-                  <p>🏓 Controla la paleta izquierda</p>
-                  <p>🤖 La IA controla la derecha</p>
-                  <p>⚡ Evita que la pelota pase</p>
-                  <p>🏆 Primer jugador en 10 puntos gana</p>
+                  <p>🏓 Control the left paddle</p>
+                  <p>🤖 AI controls the right paddle</p>
+                  <p>⚡ Don't let the ball pass</p>
+                  <p>🏆 First to 10 points wins</p>
                 </div>
               </CardContent>
             </Card>

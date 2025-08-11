@@ -3,16 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowLeft,
-  RotateCcw,
-  Play,
-  Pause,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeftIcon,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowLeft, RotateCcw, Play, Pause } from "lucide-react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { saveScore } from "@/app/leaderboard/actions";
@@ -36,6 +27,11 @@ export default function SnakeGame() {
   const [highScore, setHighScore] = useState(0);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const isMobile = useIsMobile();
+
+  // Estados para gestos táctiles
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
+    null
+  );
 
   const generateFood = useCallback(() => {
     const newFood = {
@@ -71,6 +67,63 @@ export default function SnakeGame() {
       return newDirection;
     });
   };
+
+  // Gestores de eventos táctiles
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isPlaying || gameOver) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.touches[0];
+      setTouchStart({ x: touch.clientX, y: touch.clientY });
+    },
+    [isPlaying, gameOver]
+  );
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isPlaying || gameOver || !touchStart) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      const minSwipeDistance = 30;
+
+      // Determinar dirección del swipe
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Movimiento horizontal
+        if (Math.abs(deltaX) > minSwipeDistance) {
+          if (deltaX > 0) {
+            changeDirection("RIGHT");
+          } else {
+            changeDirection("LEFT");
+          }
+        }
+      } else {
+        // Movimiento vertical
+        if (Math.abs(deltaY) > minSwipeDistance) {
+          if (deltaY > 0) {
+            changeDirection("DOWN");
+          } else {
+            changeDirection("UP");
+          }
+        }
+      }
+
+      setTouchStart(null);
+    },
+    [isPlaying, gameOver, touchStart, changeDirection]
+  );
 
   const moveSnake = useCallback(() => {
     if (gameOver || !isPlaying) return;
@@ -192,7 +245,7 @@ export default function SnakeGame() {
             <Link href='/'>
               <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm'>
                 <ArrowLeft className='h-4 w-4 mr-2' />
-                Volver
+                Back
               </Button>
             </Link>
             <h1 className='text-xl font-bold text-white'>Snake Classic</h1>
@@ -207,10 +260,14 @@ export default function SnakeGame() {
             <CardContent className='p-4'>
               <div className='w-full aspect-square max-w-xs mx-auto'>
                 <div
-                  className='grid bg-gray-900 border-2 border-green-400 w-full h-full'
+                  className='grid bg-gray-900 border-2 border-green-400 w-full h-full touch-none select-none'
                   style={{
                     gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+                    touchAction: "none",
                   }}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                 >
                   {Array.from({ length: GRID_SIZE * GRID_SIZE }).map(
                     (_, index) => {
@@ -240,6 +297,25 @@ export default function SnakeGame() {
                   )}
                 </div>
               </div>
+
+              {/* Instrucciones de gestos */}
+              <div className='mt-4 text-center'>
+                <p className='text-white/80 text-sm mb-2'>Swipe Controls 🎮</p>
+                <div className='text-xs text-white/60 space-y-1'>
+                  <p>
+                    👆 <strong>Swipe up</strong> = Move up
+                  </p>
+                  <p>
+                    👇 <strong>Swipe down</strong> = Move down
+                  </p>
+                  <p>
+                    👈 <strong>Swipe left</strong> = Move left
+                  </p>
+                  <p>
+                    👉 <strong>Swipe right</strong> = Move right
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -255,12 +331,12 @@ export default function SnakeGame() {
                   {isPlaying ? (
                     <>
                       <Pause className='h-4 w-4 mr-2' />
-                      Pausar
+                      Pause
                     </>
                   ) : (
                     <>
                       <Play className='h-4 w-4 mr-2' />
-                      {gameOver ? "Reiniciar" : "Jugar"}
+                      {gameOver ? "Restart" : "Play"}
                     </>
                   )}
                 </Button>
@@ -270,53 +346,8 @@ export default function SnakeGame() {
                   className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm py-3'
                 >
                   <RotateCcw className='h-4 w-4 mr-2' />
-                  Reiniciar
+                  Reset
                 </Button>
-              </div>
-
-              {/* Controles táctiles */}
-              <div className='flex justify-center mb-4'>
-                <div className='grid grid-cols-3 gap-2 w-48'>
-                  <div></div>
-                  <Button
-                    onTouchStart={() => changeDirection("UP")}
-                    onClick={() => changeDirection("UP")}
-                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowUp className='h-6 w-6' />
-                  </Button>
-                  <div></div>
-
-                  <Button
-                    onTouchStart={() => changeDirection("LEFT")}
-                    onClick={() => changeDirection("LEFT")}
-                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowLeftIcon className='h-6 w-6' />
-                  </Button>
-                  <div></div>
-                  <Button
-                    onTouchStart={() => changeDirection("RIGHT")}
-                    onClick={() => changeDirection("RIGHT")}
-                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowRight className='h-6 w-6' />
-                  </Button>
-
-                  <div></div>
-                  <Button
-                    onTouchStart={() => changeDirection("DOWN")}
-                    onClick={() => changeDirection("DOWN")}
-                    className='bg-green-600 hover:bg-green-700 active:bg-green-800 p-3 h-12'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowDown className='h-6 w-6' />
-                  </Button>
-                  <div></div>
-                </div>
               </div>
 
               {/* Stats compactas */}
@@ -325,13 +356,13 @@ export default function SnakeGame() {
                   <div className='text-2xl font-bold text-green-400'>
                     {score}
                   </div>
-                  <div className='text-xs text-white/60'>Puntos</div>
+                  <div className='text-xs text-white/60'>Score</div>
                 </div>
                 <div>
                   <div className='text-2xl font-bold text-green-300'>
                     {highScore}
                   </div>
-                  <div className='text-xs text-white/60'>Mejor</div>
+                  <div className='text-xs text-white/60'>Best</div>
                 </div>
               </div>
             </CardContent>
@@ -342,12 +373,11 @@ export default function SnakeGame() {
             <CardContent className='p-4'>
               <div className='text-center'>
                 <p className='text-white/80 text-sm mb-2'>
-                  Controla la serpiente verde 🐍
+                  Control the green snake 🐍
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
-                    🍎 Come comida roja = +10 puntos • 💀 Evita paredes y tu
-                    cuerpo
+                    🍎 Eat red food = +10 points • 💀 Avoid walls and your body
                   </p>
                 </div>
               </div>
@@ -378,7 +408,7 @@ export default function SnakeGame() {
             <Link href='/'>
               <Button className='bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base'>
                 <ArrowLeft className='h-4 w-4 mr-2' />
-                Volver
+                Back
               </Button>
             </Link>
             <h1 className='text-2xl sm:text-3xl lg:text-4xl font-bold text-white text-center'>
@@ -399,23 +429,21 @@ export default function SnakeGame() {
               <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
                 <CardHeader className='pb-2 sm:pb-4'>
                   <CardTitle className='text-white text-lg sm:text-xl'>
-                    Puntuación
+                    Score
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className='text-2xl sm:text-3xl font-bold text-green-400 mb-2'>
                     {score}
                   </div>
-                  <div className='text-sm text-white/60'>
-                    Mejor: {highScore}
-                  </div>
+                  <div className='text-sm text-white/60'>Best: {highScore}</div>
                 </CardContent>
               </Card>
 
               <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
                 <CardHeader className='pb-2 sm:pb-4'>
                   <CardTitle className='text-white text-lg sm:text-xl'>
-                    Controles
+                    Controls
                   </CardTitle>
                 </CardHeader>
                 <CardContent className='space-y-3 sm:space-y-4'>
@@ -427,12 +455,12 @@ export default function SnakeGame() {
                     {isPlaying ? (
                       <>
                         <Pause className='h-4 w-4 mr-2' />
-                        Pausar
+                        Pause
                       </>
                     ) : (
                       <>
                         <Play className='h-4 w-4 mr-2' />
-                        {gameOver ? "Reiniciar" : "Jugar"}
+                        {gameOver ? "Restart" : "Play"}
                       </>
                     )}
                   </Button>
@@ -442,13 +470,13 @@ export default function SnakeGame() {
                     className='w-full bg-white/20 hover:bg-white/30 text-white border border-white/40 hover:border-white/60 text-sm sm:text-base py-2 sm:py-3'
                   >
                     <RotateCcw className='h-4 w-4 mr-2' />
-                    Reiniciar
+                    Reset
                   </Button>
 
                   <div className='text-xs sm:text-sm text-white/60 space-y-1'>
-                    <p>• Usa las flechas del teclado para moverte</p>
-                    <p>• Come la comida roja para crecer</p>
-                    <p>• Evita chocar con las paredes o contigo mismo</p>
+                    <p>• Use keyboard arrows to move</p>
+                    <p>• Eat red food to grow</p>
+                    <p>• Avoid hitting walls or yourself</p>
                   </div>
                 </CardContent>
               </Card>
@@ -456,15 +484,15 @@ export default function SnakeGame() {
               <Card className='bg-white/10 backdrop-blur-sm border-white/20'>
                 <CardHeader className='pb-2 sm:pb-4'>
                   <CardTitle className='text-white text-lg sm:text-xl'>
-                    Instrucciones
+                    Instructions
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className='text-xs sm:text-sm text-white/80 space-y-2'>
-                    <p>🐍 Controla la serpiente verde</p>
-                    <p>🍎 Come la comida roja para crecer</p>
-                    <p>⚡ Cada comida vale 10 puntos</p>
-                    <p>💀 No choques con las paredes o contigo mismo</p>
+                    <p>🐍 Control the green snake</p>
+                    <p>🍎 Eat red food to grow</p>
+                    <p>⚡ Each food = 10 points</p>
+                    <p>💀 Don't hit walls or yourself</p>
                   </div>
                 </CardContent>
               </Card>
