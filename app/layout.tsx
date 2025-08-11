@@ -5,9 +5,9 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  title: "Retro-GameHub - Juegos Clásicos en Línea",
+  title: "Retro GameHub - Juegos online retro arcade",
   description:
-    "Disfruta de los mejores juegos clásicos directamente en tu navegador.",
+    "Disfruta de los mejores juegos clásicos directamente en tu navegador. Juegos online retro arcade",
   generator: "v0.dev",
 };
 
