@@ -607,7 +607,7 @@ export default function TetrisGame() {
               </div>
 
               {/* Controles táctiles solo como respaldo */}
-              <details className='mt-4'>
+              {/* <details className='mt-4'>
                 <summary className='text-white/60 text-sm cursor-pointer'>
                   🎮 Mostrar botones de respaldo
                 </summary>
@@ -641,10 +641,10 @@ export default function TetrisGame() {
                     <RotateCw className='h-4 w-4' />
                   </Button>
                 </div>
-              </details>
+              </details> */}
 
               {/* Stats compactas */}
-              <div className='grid grid-cols-3 gap-4 text-center mb-4'>
+              <div className='grid grid-cols-3 gap-4 text-center mt-3 mb-2'>
                 <div>
                   <div className='text-xl font-bold text-purple-400'>
                     {score}
