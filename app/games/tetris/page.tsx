@@ -341,13 +341,13 @@ export default function TetrisGame() {
       setIsDragging(false);
       setLastMoveTime(Date.now());
 
-      // Timer para detectar hold vertical SOLO (caída rápida)
+      // Timer más corto para detectar hold (300ms)
       holdTimerRef.current = setTimeout(() => {
         // Solo activar fast drop si NO estamos arrastrando horizontalmente
         if (!isDragging) {
           setIsFastDrop(true);
         }
-      }, 600); // Aumentamos a 600ms para dar tiempo al drag horizontal
+      }, 300);
     },
     [isPlaying, gameOver, isDragging]
   );
@@ -385,17 +385,16 @@ export default function TetrisGame() {
           startContinuousMove(direction);
         }
       }
-      // Si ya estamos en fast drop y nos movemos horizontalmente, permitir movimientos únicos
+      // Si ya estamos en fast drop y nos movemos horizontalmente, iniciar movimiento continuo horizontal
       else if (isFastDrop && Math.abs(deltaX) > 15) {
         const direction = deltaX > 0 ? "right" : "left";
-        const timeSinceLastMove = now - lastMoveTime;
 
-        // Permitir movimiento horizontal cada 200ms durante fast drop
-        if (timeSinceLastMove > 200) {
-          const dx = direction === "left" ? -1 : 1;
-          movePiece(dx, 0);
-          setLastMoveTime(now);
-          // Actualizar touchStart para evitar movimientos múltiples
+        // Cambiar a modo drag horizontal continuo incluso durante fast drop
+        if (!isDragging) {
+          setIsDragging(true);
+          setDragDirection(direction);
+          startContinuousMove(direction);
+          // Actualizar touchStart para evitar re-detección
           setTouchStart({ x: touch.clientX, y: touch.clientY });
         }
       }
@@ -407,10 +406,8 @@ export default function TetrisGame() {
       isDragging,
       dragDirection,
       isFastDrop,
-      lastMoveTime,
       startContinuousMove,
       stopContinuousMove,
-      movePiece,
     ]
   );
 
@@ -435,21 +432,21 @@ export default function TetrisGame() {
       setIsFastDrop(false);
       setIsDragging(false);
 
-      // Si fue un drag horizontal, no procesar como otro gesto
+      // Si fue un drag (horizontal o durante fast drop), no procesar como otro gesto
       if (isDragging) {
         setTouchStart(null);
         return;
       }
 
-      // Si fue un hold largo (fast drop), no procesar como tap
-      if (touchDuration > 600) {
+      // Si fue un hold largo (fast drop solo), no procesar como tap
+      if (touchDuration > 300) {
         setTouchStart(null);
         return;
       }
 
       const minSwipeDistance = 30;
 
-      // Procesar gestos simples
+      // Procesar gestos simples SOLO si no hubo drag ni hold
       if (
         Math.abs(deltaX) < minSwipeDistance &&
         Math.abs(deltaY) < minSwipeDistance
@@ -466,7 +463,7 @@ export default function TetrisGame() {
         Math.abs(deltaX) > Math.abs(deltaY) &&
         Math.abs(deltaX) > minSwipeDistance
       ) {
-        // Swipe horizontal único
+        // Swipe horizontal único (solo si no fue drag continuo)
         const direction = deltaX > 0 ? 1 : -1;
         movePiece(direction, 0);
       }
@@ -714,22 +711,22 @@ export default function TetrisGame() {
               {/* Instrucciones de gestos MEJORADAS para móvil */}
               <div className='mt-4 text-center'>
                 <p className='text-white/80 text-sm mb-2'>
-                  Controles táctiles mejorados 🎮
+                  Controles táctiles optimizados 🎮
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
                     👆 <strong>Tap</strong> = Rotar pieza
                   </p>
                   <p>
-                    👈👉 <strong>Drag horizontal</strong> = Mover
-                    izquierda/derecha (continuo)
+                    👈👉 <strong>Mantén + Arrastra</strong> = Movimiento
+                    continuo horizontal
                   </p>
                   <p>
                     👇 <strong>Swipe abajo</strong> = Caída rápida
                   </p>
                   <p>
-                    ✋ <strong>Hold vertical</strong> = Caída súper rápida
-                    (puedes mover horizontalmente)
+                    ✋ <strong>Mantén vertical</strong> = Fast drop + movimiento
+                    libre
                   </p>
                 </div>
               </div>
@@ -796,13 +793,10 @@ export default function TetrisGame() {
                   Encaja las piezas 🧩
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
+                  <p>👆 Tap para rotar • 👈👉 Mantén + arrastra para mover</p>
                   <p>
-                    👆 Tap para rotar • 👈👉 Drag para mover • 👇 Swipe para
-                    acelerar
-                  </p>
-                  <p>
-                    ✋ Hold para caída súper rápida + movimiento horizontal
-                    libre
+                    👇 Swipe para acelerar • ✋ Hold vertical = fast drop +
+                    control libre
                   </p>
                 </div>
               </div>
