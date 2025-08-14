@@ -100,13 +100,22 @@ export default function TetrisGame() {
   const dropTimeRef = useRef<number>(1000);
   const lastDropTimeRef = useRef<number>(0);
 
-  // Estados para gestos táctiles
+  // Estados mejorados para gestos táctiles
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
     null
   );
   const [touchStartTime, setTouchStartTime] = useState<number>(0);
-  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isFastDrop, setIsFastDrop] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragDirection, setDragDirection] = useState<"left" | "right" | null>(
+    null
+  );
+  const [lastMoveTime, setLastMoveTime] = useState<number>(0);
+
+  // Referencias para timers
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dragThresholdRef = useRef<number>(25); // píxeles para detectar drag
 
   const getRandomTetromino = (): TetrominoType => {
     const types = Object.keys(TETROMINOES) as TetrominoType[];
@@ -290,7 +299,35 @@ export default function TetrisGame() {
     }
   }, [movePiece, isFastDrop]);
 
-  // Gestores de eventos táctiles
+  // Función para mover continuamente durante el drag
+  const startContinuousMove = useCallback(
+    (direction: "left" | "right") => {
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
+      }
+
+      const dx = direction === "left" ? -1 : 1;
+
+      // Primer movimiento inmediato
+      movePiece(dx, 0);
+
+      // Movimientos continuos cada 120ms
+      moveIntervalRef.current = setInterval(() => {
+        movePiece(dx, 0);
+      }, 120);
+    },
+    [movePiece]
+  );
+
+  const stopContinuousMove = useCallback(() => {
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
+    }
+    setDragDirection(null);
+  }, []);
+
+  // Gestores de eventos táctiles MEJORADOS
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (!isPlaying || gameOver) return;
@@ -301,19 +338,81 @@ export default function TetrisGame() {
       const touch = e.touches[0];
       setTouchStart({ x: touch.clientX, y: touch.clientY });
       setTouchStartTime(Date.now());
+      setIsDragging(false);
+      setLastMoveTime(Date.now());
 
-      // Hold para caída rápida
+      // Timer para detectar hold vertical SOLO (caída rápida)
       holdTimerRef.current = setTimeout(() => {
-        setIsFastDrop(true);
-      }, 300);
+        // Solo activar fast drop si NO estamos arrastrando horizontalmente
+        if (!isDragging) {
+          setIsFastDrop(true);
+        }
+      }, 600); // Aumentamos a 600ms para dar tiempo al drag horizontal
     },
-    [isPlaying, gameOver]
+    [isPlaying, gameOver, isDragging]
   );
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isPlaying || gameOver || !touchStart) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
+      const now = Date.now();
+
+      // Detectar si es un drag horizontal (prioridad sobre vertical)
+      if (Math.abs(deltaX) > dragThresholdRef.current) {
+        if (!isDragging) {
+          setIsDragging(true);
+          // IMPORTANTE: Cancelar fast drop ya que estamos arrastrando horizontalmente
+          if (holdTimerRef.current) {
+            clearTimeout(holdTimerRef.current);
+            holdTimerRef.current = null;
+          }
+          setIsFastDrop(false);
+        }
+
+        const direction = deltaX > 0 ? "right" : "left";
+
+        // Solo cambiar dirección si es diferente o si no hay dirección activa
+        if (dragDirection !== direction) {
+          stopContinuousMove();
+          setDragDirection(direction);
+          startContinuousMove(direction);
+        }
+      }
+      // Si ya estamos en fast drop y nos movemos horizontalmente, permitir movimientos únicos
+      else if (isFastDrop && Math.abs(deltaX) > 15) {
+        const direction = deltaX > 0 ? "right" : "left";
+        const timeSinceLastMove = now - lastMoveTime;
+
+        // Permitir movimiento horizontal cada 200ms durante fast drop
+        if (timeSinceLastMove > 200) {
+          const dx = direction === "left" ? -1 : 1;
+          movePiece(dx, 0);
+          setLastMoveTime(now);
+          // Actualizar touchStart para evitar movimientos múltiples
+          setTouchStart({ x: touch.clientX, y: touch.clientY });
+        }
+      }
+    },
+    [
+      isPlaying,
+      gameOver,
+      touchStart,
+      isDragging,
+      dragDirection,
+      isFastDrop,
+      lastMoveTime,
+      startContinuousMove,
+      stopContinuousMove,
+      movePiece,
+    ]
+  );
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
@@ -324,45 +423,52 @@ export default function TetrisGame() {
 
       const touch = e.changedTouches[0];
       const touchDuration = Date.now() - touchStartTime;
+      const deltaX = touch.clientX - touchStart.x;
+      const deltaY = touch.clientY - touchStart.y;
 
-      // Limpiar timer de hold
+      // Limpiar todos los timers e intervalos
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
       }
+      stopContinuousMove();
       setIsFastDrop(false);
+      setIsDragging(false);
 
-      // Si fue un hold largo, no procesar como gesto
-      if (touchDuration > 300) {
+      // Si fue un drag horizontal, no procesar como otro gesto
+      if (isDragging) {
         setTouchStart(null);
         return;
       }
 
-      const deltaX = touch.clientX - touchStart.x;
-      const deltaY = touch.clientY - touchStart.y;
+      // Si fue un hold largo (fast drop), no procesar como tap
+      if (touchDuration > 600) {
+        setTouchStart(null);
+        return;
+      }
+
       const minSwipeDistance = 30;
 
-      // Determinar tipo de gesto
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        // Movimiento horizontal
-        if (Math.abs(deltaX) > minSwipeDistance) {
-          if (deltaX > 0) {
-            movePiece(1, 0); // Derecha
-          } else {
-            movePiece(-1, 0); // Izquierda
-          }
-        } else {
-          // Tap pequeño = rotar
-          rotatePieceHandler();
-        }
-      } else {
-        // Movimiento vertical
-        if (deltaY > minSwipeDistance) {
-          movePiece(0, 1); // Abajo (caída rápida)
-        } else if (Math.abs(deltaY) < minSwipeDistance) {
-          // Tap vertical = rotar
-          rotatePieceHandler();
-        }
+      // Procesar gestos simples
+      if (
+        Math.abs(deltaX) < minSwipeDistance &&
+        Math.abs(deltaY) < minSwipeDistance
+      ) {
+        // Tap = rotar
+        rotatePieceHandler();
+      } else if (
+        Math.abs(deltaY) > Math.abs(deltaX) &&
+        deltaY > minSwipeDistance
+      ) {
+        // Swipe hacia abajo = caída rápida de una vez
+        movePiece(0, 1);
+      } else if (
+        Math.abs(deltaX) > Math.abs(deltaY) &&
+        Math.abs(deltaX) > minSwipeDistance
+      ) {
+        // Swipe horizontal único
+        const direction = deltaX > 0 ? 1 : -1;
+        movePiece(direction, 0);
       }
 
       setTouchStart(null);
@@ -372,16 +478,21 @@ export default function TetrisGame() {
       gameOver,
       touchStart,
       touchStartTime,
+      isDragging,
       movePiece,
       rotatePieceHandler,
+      stopContinuousMove,
     ]
   );
 
-  // Limpiar timer al desmontar
+  // Limpiar timers al desmontar
   useEffect(() => {
     return () => {
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
+      }
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
       }
     };
   }, []);
@@ -401,6 +512,9 @@ export default function TetrisGame() {
     setIsPlaying(false);
     lastDropTimeRef.current = 0;
     setShowScoreModal(false);
+    setIsFastDrop(false);
+    setIsDragging(false);
+    stopContinuousMove();
   };
 
   const startGame = () => {
@@ -540,11 +654,24 @@ export default function TetrisGame() {
                     ))
                   )}
 
-                  {/* Indicador visual de gestos */}
+                  {/* Indicadores visuales mejorados */}
                   {isFastDrop && (
                     <div className='absolute inset-0 bg-blue-500/20 border-2 border-blue-400 rounded animate-pulse flex items-center justify-center'>
-                      <div className='text-white font-bold text-lg'>
+                      <div className='text-white font-bold text-base'>
                         ⚡ FAST DROP
+                        <div className='text-xs mt-1'>
+                          Mueve horizontalmente para reposicionar
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isDragging && dragDirection && (
+                    <div className='absolute inset-0 bg-green-500/20 border-2 border-green-400 rounded flex items-center justify-center'>
+                      <div className='text-white font-bold text-base'>
+                        {dragDirection === "left"
+                          ? "← MOVING LEFT"
+                          : "MOVING RIGHT →"}
                       </div>
                     </div>
                   )}
@@ -584,64 +711,28 @@ export default function TetrisGame() {
                 </Button>
               </div>
 
-              {/* Instrucciones de gestos para móvil */}
+              {/* Instrucciones de gestos MEJORADAS para móvil */}
               <div className='mt-4 text-center'>
                 <p className='text-white/80 text-sm mb-2'>
-                  Controles táctiles 🎮
+                  Controles táctiles mejorados 🎮
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
                     👆 <strong>Tap</strong> = Rotar pieza
                   </p>
                   <p>
-                    👈👉 <strong>Swipe horizontal</strong> = Mover
-                    izquierda/derecha
+                    👈👉 <strong>Drag horizontal</strong> = Mover
+                    izquierda/derecha (continuo)
                   </p>
                   <p>
                     👇 <strong>Swipe abajo</strong> = Caída rápida
                   </p>
                   <p>
-                    ✋ <strong>Hold</strong> = Caída súper rápida
+                    ✋ <strong>Hold vertical</strong> = Caída súper rápida
+                    (puedes mover horizontalmente)
                   </p>
                 </div>
               </div>
-
-              {/* Controles táctiles solo como respaldo */}
-              {/* <details className='mt-4'>
-                <summary className='text-white/60 text-sm cursor-pointer'>
-                  🎮 Mostrar botones de respaldo
-                </summary>
-                <div className='grid grid-cols-4 gap-2 max-w-sm mx-auto mt-3'>
-                  <Button
-                    onClick={() => movePiece(-1, 0)}
-                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowLeftIcon className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    onClick={() => movePiece(0, 1)}
-                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowDown className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    onClick={() => movePiece(1, 0)}
-                    className='bg-purple-600/50 hover:bg-purple-700/50 p-2 h-10 text-xs'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <ArrowRight className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    onClick={rotatePieceHandler}
-                    className='bg-orange-600/50 hover:bg-orange-700/50 p-2 h-10 text-xs'
-                    disabled={!isPlaying || gameOver}
-                  >
-                    <RotateCw className='h-4 w-4' />
-                  </Button>
-                </div>
-              </details> */}
 
               {/* Stats compactas */}
               <div className='grid grid-cols-3 gap-4 text-center mt-3 mb-2'>
@@ -706,12 +797,12 @@ export default function TetrisGame() {
                 </p>
                 <div className='text-xs text-white/60 space-y-1'>
                   <p>
-                    👆 Tap para rotar • 👈👉 Swipe para mover • 👇 Swipe para
+                    👆 Tap para rotar • 👈👉 Drag para mover • 👇 Swipe para
                     acelerar
                   </p>
                   <p>
-                    ✋ Hold para caída súper rápida • 🧱 Completa líneas para
-                    puntos
+                    ✋ Hold para caída súper rápida + movimiento horizontal
+                    libre
                   </p>
                 </div>
               </div>
