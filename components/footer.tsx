@@ -9,7 +9,16 @@ export function Footer() {
           <span className='text-white font-semibold'>Retro GameHub</span>
         </div>
         <p className='text-white/70'>
-          © 2025 Memento Academy. Todos los derechos reservados.
+          © 2025{" "}
+          <a
+            href='https://jorgecalleja.dev'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='hover:text-white transition-colors'
+          >
+            Memento Academy
+          </a>
+          . Todos los derechos reservados.
         </p>
       </div>
     </footer>
