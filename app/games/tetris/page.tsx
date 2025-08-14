@@ -110,12 +110,13 @@ export default function TetrisGame() {
   const [dragDirection, setDragDirection] = useState<"left" | "right" | null>(
     null
   );
-  const [lastMoveTime, setLastMoveTime] = useState<number>(0);
+  const [isHorizontalMoving, setIsHorizontalMoving] = useState(false);
 
   // Referencias para timers
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const dragThresholdRef = useRef<number>(25); // píxeles para detectar drag
+  const horizontalMoveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dragThresholdRef = useRef<number>(20); // píxeles para detectar drag
 
   const getRandomTetromino = (): TetrominoType => {
     const types = Object.keys(TETROMINOES) as TetrominoType[];
@@ -299,7 +300,40 @@ export default function TetrisGame() {
     }
   }, [movePiece, isFastDrop]);
 
-  // Función para mover continuamente durante el drag
+  // Función para mover horizontalmente de forma continua
+  const startHorizontalMovement = useCallback(
+    (direction: "left" | "right") => {
+      // Limpiar cualquier movimiento horizontal previo
+      if (horizontalMoveIntervalRef.current) {
+        clearInterval(horizontalMoveIntervalRef.current);
+      }
+
+      const dx = direction === "left" ? -1 : 1;
+
+      // Primer movimiento inmediato
+      movePiece(dx, 0);
+
+      // Movimientos continuos cada 100ms (más rápido que antes)
+      horizontalMoveIntervalRef.current = setInterval(() => {
+        movePiece(dx, 0);
+      }, 100);
+
+      setIsHorizontalMoving(true);
+      setDragDirection(direction);
+    },
+    [movePiece]
+  );
+
+  const stopHorizontalMovement = useCallback(() => {
+    if (horizontalMoveIntervalRef.current) {
+      clearInterval(horizontalMoveIntervalRef.current);
+      horizontalMoveIntervalRef.current = null;
+    }
+    setIsHorizontalMoving(false);
+    setDragDirection(null);
+  }, []);
+
+  // Función para mover continuamente durante el drag (mantener por compatibilidad)
   const startContinuousMove = useCallback(
     (direction: "left" | "right") => {
       if (moveIntervalRef.current) {
@@ -327,7 +361,7 @@ export default function TetrisGame() {
     setDragDirection(null);
   }, []);
 
-  // Gestores de eventos táctiles MEJORADOS
+  // Gestores de eventos táctiles SIMPLIFICADOS Y MEJORADOS
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (!isPlaying || gameOver) return;
@@ -339,17 +373,15 @@ export default function TetrisGame() {
       setTouchStart({ x: touch.clientX, y: touch.clientY });
       setTouchStartTime(Date.now());
       setIsDragging(false);
-      setLastMoveTime(Date.now());
 
-      // Timer más corto para detectar hold (300ms)
+      // Timer para fast drop vertical (solo si no se mueve horizontalmente)
       holdTimerRef.current = setTimeout(() => {
-        // Solo activar fast drop si NO estamos arrastrando horizontalmente
-        if (!isDragging) {
+        if (!isDragging && !isHorizontalMoving) {
           setIsFastDrop(true);
         }
       }, 300);
     },
-    [isPlaying, gameOver, isDragging]
+    [isPlaying, gameOver, isDragging, isHorizontalMoving]
   );
 
   const handleTouchMove = useCallback(
@@ -362,40 +394,39 @@ export default function TetrisGame() {
       const touch = e.touches[0];
       const deltaX = touch.clientX - touchStart.x;
       const deltaY = touch.clientY - touchStart.y;
-      const now = Date.now();
 
-      // Detectar si es un drag horizontal (prioridad sobre vertical)
-      if (Math.abs(deltaX) > dragThresholdRef.current) {
-        if (!isDragging) {
-          setIsDragging(true);
-          // IMPORTANTE: Cancelar fast drop ya que estamos arrastrando horizontalmente
-          if (holdTimerRef.current) {
-            clearTimeout(holdTimerRef.current);
-            holdTimerRef.current = null;
-          }
-          setIsFastDrop(false);
+      // PRIORIDAD: Detectar movimiento horizontal
+      if (
+        Math.abs(deltaX) > dragThresholdRef.current &&
+        !isDragging &&
+        !isHorizontalMoving
+      ) {
+        // Cancelar fast drop porque vamos a mover horizontalmente
+        if (holdTimerRef.current) {
+          clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = null;
         }
+        setIsFastDrop(false);
+        setIsDragging(true);
 
         const direction = deltaX > 0 ? "right" : "left";
-
-        // Solo cambiar dirección si es diferente o si no hay dirección activa
-        if (dragDirection !== direction) {
-          stopContinuousMove();
-          setDragDirection(direction);
-          startContinuousMove(direction);
-        }
+        startHorizontalMovement(direction);
       }
-      // Si ya estamos en fast drop y nos movemos horizontalmente, iniciar movimiento continuo horizontal
-      else if (isFastDrop && Math.abs(deltaX) > 15) {
+      // Si ya estamos en fast drop y detectamos movimiento horizontal, activar movimiento horizontal
+      else if (isFastDrop && Math.abs(deltaX) > 15 && !isHorizontalMoving) {
         const direction = deltaX > 0 ? "right" : "left";
-
-        // Cambiar a modo drag horizontal continuo incluso durante fast drop
-        if (!isDragging) {
-          setIsDragging(true);
-          setDragDirection(direction);
-          startContinuousMove(direction);
-          // Actualizar touchStart para evitar re-detección
-          setTouchStart({ x: touch.clientX, y: touch.clientY });
+        startHorizontalMovement(direction);
+        setIsDragging(true);
+      }
+      // Si ya estamos moviendo horizontalmente, verificar cambio de dirección
+      else if (
+        isHorizontalMoving &&
+        Math.abs(deltaX) > dragThresholdRef.current
+      ) {
+        const newDirection = deltaX > 0 ? "right" : "left";
+        if (newDirection !== dragDirection) {
+          stopHorizontalMovement();
+          startHorizontalMovement(newDirection);
         }
       }
     },
@@ -404,10 +435,11 @@ export default function TetrisGame() {
       gameOver,
       touchStart,
       isDragging,
-      dragDirection,
+      isHorizontalMoving,
       isFastDrop,
-      startContinuousMove,
-      stopContinuousMove,
+      dragDirection,
+      startHorizontalMovement,
+      stopHorizontalMovement,
     ]
   );
 
@@ -428,17 +460,20 @@ export default function TetrisGame() {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
       }
+
+      // Detener todos los movimientos
+      stopHorizontalMovement();
       stopContinuousMove();
       setIsFastDrop(false);
       setIsDragging(false);
 
-      // Si fue un drag (horizontal o durante fast drop), no procesar como otro gesto
-      if (isDragging) {
+      // Si hubo movimiento horizontal continuo, no procesar como otros gestos
+      if (isHorizontalMoving) {
         setTouchStart(null);
         return;
       }
 
-      // Si fue un hold largo (fast drop solo), no procesar como tap
+      // Si fue un hold largo, no procesar como tap
       if (touchDuration > 300) {
         setTouchStart(null);
         return;
@@ -446,7 +481,7 @@ export default function TetrisGame() {
 
       const minSwipeDistance = 30;
 
-      // Procesar gestos simples SOLO si no hubo drag ni hold
+      // Procesar gestos simples SOLO si no hubo movimiento continuo
       if (
         Math.abs(deltaX) < minSwipeDistance &&
         Math.abs(deltaY) < minSwipeDistance
@@ -463,7 +498,7 @@ export default function TetrisGame() {
         Math.abs(deltaX) > Math.abs(deltaY) &&
         Math.abs(deltaX) > minSwipeDistance
       ) {
-        // Swipe horizontal único (solo si no fue drag continuo)
+        // Swipe horizontal único rápido
         const direction = deltaX > 0 ? 1 : -1;
         movePiece(direction, 0);
       }
@@ -475,9 +510,10 @@ export default function TetrisGame() {
       gameOver,
       touchStart,
       touchStartTime,
-      isDragging,
+      isHorizontalMoving,
       movePiece,
       rotatePieceHandler,
+      stopHorizontalMovement,
       stopContinuousMove,
     ]
   );
@@ -490,6 +526,9 @@ export default function TetrisGame() {
       }
       if (moveIntervalRef.current) {
         clearInterval(moveIntervalRef.current);
+      }
+      if (horizontalMoveIntervalRef.current) {
+        clearInterval(horizontalMoveIntervalRef.current);
       }
     };
   }, []);
@@ -511,6 +550,8 @@ export default function TetrisGame() {
     setShowScoreModal(false);
     setIsFastDrop(false);
     setIsDragging(false);
+    setIsHorizontalMoving(false);
+    stopHorizontalMovement();
     stopContinuousMove();
   };
 
@@ -663,7 +704,7 @@ export default function TetrisGame() {
                     </div>
                   )}
 
-                  {isDragging && dragDirection && (
+                  {isDragging && isHorizontalMoving && dragDirection && (
                     <div className='absolute inset-0 bg-green-500/20 border-2 border-green-400 rounded flex items-center justify-center'>
                       <div className='text-white font-bold text-base'>
                         {dragDirection === "left"
