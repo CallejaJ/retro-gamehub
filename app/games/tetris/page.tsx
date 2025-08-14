@@ -221,7 +221,17 @@ export default function TetrisGame() {
 
   const movePiece = useCallback(
     (dx: number, dy: number): boolean => {
-      if (!currentPiece || !isPlaying || gameOver) return false;
+      if (!currentPiece || !isPlaying || gameOver) {
+        console.log(
+          "❌ movePiece bloqueado:",
+          !currentPiece
+            ? "no hay pieza"
+            : !isPlaying
+            ? "no jugando"
+            : "game over"
+        );
+        return false;
+      }
 
       const newPiece = {
         ...currentPiece,
@@ -229,9 +239,21 @@ export default function TetrisGame() {
         y: currentPiece.y + dy,
       };
 
+      console.log(
+        "🎯 Intentando mover de",
+        currentPiece.x,
+        "a",
+        newPiece.x,
+        "- dx:",
+        dx
+      );
+
       if (isValidPosition(newPiece)) {
         setCurrentPiece(newPiece);
+        console.log("✅ Movimiento exitoso! Nueva posición X:", newPiece.x);
         return true;
+      } else {
+        console.log("❌ Posición inválida. No se puede mover a X:", newPiece.x);
       }
 
       if (dy > 0) {
@@ -316,19 +338,50 @@ export default function TetrisGame() {
       const moved = movePiece(dx, 0);
       console.log("🎯 Primer movimiento:", moved ? "exitoso" : "fallido");
 
-      // Movimientos continuos cada 150ms
+      // Función para detener el movimiento (definida localmente)
+      const stopMovement = () => {
+        if (horizontalMoveIntervalRef.current) {
+          clearInterval(horizontalMoveIntervalRef.current);
+          horizontalMoveIntervalRef.current = null;
+        }
+        setIsHorizontalMoving(false);
+        setDragDirection(null);
+      };
+
+      // Movimientos continuos cada 100ms
       horizontalMoveIntervalRef.current = setInterval(() => {
-        const continuousMove = movePiece(dx, 0);
-        console.log(
-          "🔄 Movimiento continuo:",
-          continuousMove ? "exitoso" : "fallido"
-        );
-      }, 150);
+        // IMPORTANTE: Usar callback para obtener el estado más reciente
+        setCurrentPiece((prevPiece) => {
+          if (!prevPiece || !isPlaying || gameOver) {
+            console.log("❌ No hay pieza o juego pausado");
+            stopMovement();
+            return prevPiece;
+          }
+
+          const newPiece = {
+            ...prevPiece,
+            x: prevPiece.x + dx,
+            y: prevPiece.y,
+          };
+
+          console.log("🔄 Intentando mover de", prevPiece.x, "a", newPiece.x);
+
+          // Verificar si la nueva posición es válida
+          if (isValidPosition(newPiece)) {
+            console.log("✅ Movimiento continuo exitoso! X:", newPiece.x);
+            return newPiece;
+          } else {
+            console.log("❌ No se puede mover más. Deteniendo movimiento.");
+            stopMovement();
+            return prevPiece;
+          }
+        });
+      }, 100);
 
       setIsHorizontalMoving(true);
       setDragDirection(direction);
     },
-    [movePiece]
+    [movePiece, isPlaying, gameOver, isValidPosition]
   );
 
   const stopHorizontalMovement = useCallback(() => {
