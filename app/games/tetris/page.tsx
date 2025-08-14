@@ -303,6 +303,8 @@ export default function TetrisGame() {
   // Función para mover horizontalmente de forma continua
   const startHorizontalMovement = useCallback(
     (direction: "left" | "right") => {
+      console.log("🚀 startHorizontalMovement:", direction);
+
       // Limpiar cualquier movimiento horizontal previo
       if (horizontalMoveIntervalRef.current) {
         clearInterval(horizontalMoveIntervalRef.current);
@@ -311,12 +313,17 @@ export default function TetrisGame() {
       const dx = direction === "left" ? -1 : 1;
 
       // Primer movimiento inmediato
-      movePiece(dx, 0);
+      const moved = movePiece(dx, 0);
+      console.log("🎯 Primer movimiento:", moved ? "exitoso" : "fallido");
 
-      // Movimientos continuos cada 100ms (más rápido que antes)
+      // Movimientos continuos cada 150ms
       horizontalMoveIntervalRef.current = setInterval(() => {
-        movePiece(dx, 0);
-      }, 100);
+        const continuousMove = movePiece(dx, 0);
+        console.log(
+          "🔄 Movimiento continuo:",
+          continuousMove ? "exitoso" : "fallido"
+        );
+      }, 150);
 
       setIsHorizontalMoving(true);
       setDragDirection(direction);
@@ -325,6 +332,7 @@ export default function TetrisGame() {
   );
 
   const stopHorizontalMovement = useCallback(() => {
+    console.log("🛑 stopHorizontalMovement");
     if (horizontalMoveIntervalRef.current) {
       clearInterval(horizontalMoveIntervalRef.current);
       horizontalMoveIntervalRef.current = null;
@@ -361,25 +369,21 @@ export default function TetrisGame() {
     setDragDirection(null);
   }, []);
 
-  // Gestores de eventos táctiles SIMPLIFICADOS Y MEJORADOS
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (!isPlaying || gameOver) return;
-
-      e.preventDefault();
-      e.stopPropagation();
 
       const touch = e.touches[0];
       setTouchStart({ x: touch.clientX, y: touch.clientY });
       setTouchStartTime(Date.now());
       setIsDragging(false);
 
-      // Timer para fast drop vertical (solo si no se mueve horizontalmente)
+      // Timer más largo para fast drop vertical - dar tiempo al drag horizontal
       holdTimerRef.current = setTimeout(() => {
         if (!isDragging && !isHorizontalMoving) {
           setIsFastDrop(true);
         }
-      }, 300);
+      }, 500);
     },
     [isPlaying, gameOver, isDragging, isHorizontalMoving]
   );
@@ -388,20 +392,18 @@ export default function TetrisGame() {
     (e: React.TouchEvent) => {
       if (!isPlaying || gameOver || !touchStart) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-
       const touch = e.touches[0];
       const deltaX = touch.clientX - touchStart.x;
       const deltaY = touch.clientY - touchStart.y;
 
-      // PRIORIDAD: Detectar movimiento horizontal
-      if (
-        Math.abs(deltaX) > dragThresholdRef.current &&
-        !isDragging &&
-        !isHorizontalMoving
-      ) {
-        // Cancelar fast drop porque vamos a mover horizontalmente
+      // Si no estamos ya moviendo horizontalmente, verificar si debemos empezar
+      if (!isHorizontalMoving && Math.abs(deltaX) > dragThresholdRef.current) {
+        console.log(
+          "🎮 Iniciando movimiento horizontal:",
+          deltaX > 0 ? "derecha" : "izquierda"
+        );
+
+        // Cancelar fast drop
         if (holdTimerRef.current) {
           clearTimeout(holdTimerRef.current);
           holdTimerRef.current = null;
@@ -412,12 +414,6 @@ export default function TetrisGame() {
         const direction = deltaX > 0 ? "right" : "left";
         startHorizontalMovement(direction);
       }
-      // Si ya estamos en fast drop y detectamos movimiento horizontal, activar movimiento horizontal
-      else if (isFastDrop && Math.abs(deltaX) > 15 && !isHorizontalMoving) {
-        const direction = deltaX > 0 ? "right" : "left";
-        startHorizontalMovement(direction);
-        setIsDragging(true);
-      }
       // Si ya estamos moviendo horizontalmente, verificar cambio de dirección
       else if (
         isHorizontalMoving &&
@@ -425,6 +421,7 @@ export default function TetrisGame() {
       ) {
         const newDirection = deltaX > 0 ? "right" : "left";
         if (newDirection !== dragDirection) {
+          console.log("🎮 Cambiando dirección:", newDirection);
           stopHorizontalMovement();
           startHorizontalMovement(newDirection);
         }
@@ -447,41 +444,50 @@ export default function TetrisGame() {
     (e: React.TouchEvent) => {
       if (!isPlaying || gameOver || !touchStart) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-
       const touch = e.changedTouches[0];
       const touchDuration = Date.now() - touchStartTime;
       const deltaX = touch.clientX - touchStart.x;
       const deltaY = touch.clientY - touchStart.y;
 
-      // Limpiar todos los timers e intervalos
+      // Solo detener movimiento si NO hubo movimiento continuo o si fue muy corto
+      const wasRealMovement = isHorizontalMoving && touchDuration > 200;
+
+      // Limpiar timers
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
       }
 
-      // Detener todos los movimientos
+      // Si fue un movimiento continuo real, solo limpiar al final
+      if (wasRealMovement) {
+        console.log(
+          "🎮 Finalizando movimiento continuo después de",
+          touchDuration,
+          "ms"
+        );
+        stopHorizontalMovement();
+        stopContinuousMove();
+        setIsFastDrop(false);
+        setIsDragging(false);
+        setTouchStart(null);
+        return;
+      }
+
+      // Para gestos cortos o taps
       stopHorizontalMovement();
       stopContinuousMove();
       setIsFastDrop(false);
       setIsDragging(false);
 
-      // Si hubo movimiento horizontal continuo, no procesar como otros gestos
-      if (isHorizontalMoving) {
-        setTouchStart(null);
-        return;
-      }
-
       // Si fue un hold largo, no procesar como tap
-      if (touchDuration > 300) {
+      if (touchDuration > 500) {
         setTouchStart(null);
         return;
       }
 
       const minSwipeDistance = 30;
 
-      // Procesar gestos simples SOLO si no hubo movimiento continuo
+      // Procesar gestos simples
       if (
         Math.abs(deltaX) < minSwipeDistance &&
         Math.abs(deltaY) < minSwipeDistance
@@ -675,6 +681,9 @@ export default function TetrisGame() {
                     gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
                     gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
                     touchAction: "none",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    WebkitTouchCallout: "none",
                   }}
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
