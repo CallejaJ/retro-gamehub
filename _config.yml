@@ -4,7 +4,7 @@
 title: "🎮 Retro GameHub"
 description: "Modern retro gaming platform built with Next.js"
 url: "https://calleja.github.io"
-baseurl: "/retro-gamehub"
+# baseurl: "/retro-gamehub"
 
 # Tema profesional - perfecto para gaming projects
 remote_theme: pages-themes/cayman@v0.2.0
