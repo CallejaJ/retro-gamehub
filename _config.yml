@@ -1,0 +1,67 @@
+# _config.yml - Configuración para tu sitio web
+
+# Información del sitio
+title: "🎮 Retro GameHub"
+description: "Modern retro gaming platform built with Next.js"
+url: "https://calleja.github.io"
+baseurl: "/retro-gamehub"
+
+# Tema profesional - perfecto para gaming projects
+remote_theme: pages-themes/cayman@v0.2.0
+
+# Plugins de Jekyll
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Configuración del autor
+author:
+  name: "Jorge Calleja"
+  email: "callejaj@proton.me"
+  url: "https://www.memento-academy.com"
+
+# Links sociales (aparecen automáticamente)
+github_username: CallejaJ
+linkedin_username: tu-linkedin-username
+
+# SEO y analytics (opcional)
+google_analytics: G-XXXXXXXXXX
+lang: es
+
+# Configuración de Markdown
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Configuración de colecciones (opcional)
+collections:
+  games:
+    output: true
+    permalink: /:collection/:name/
+
+# Configuración por defecto
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+
+# Excluir archivos del sitio web
+exclude:
+  - node_modules
+  - package.json
+  - package-lock.json
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  - .gitignore
+  - README.md
