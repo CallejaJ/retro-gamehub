@@ -1,23 +1,81 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerActionClient } from "@/lib/supabase";
-import { cookies } from "next/headers";
+import { z } from "zod";
+import {
+  createServerActionClient,
+  type Comment,
+  type Score,
+} from "@/lib/supabase";
+
+// ---------------------------------------------------------------------------
+// Validación de entrada
+// ---------------------------------------------------------------------------
+
+const GAME_NAMES = [
+  "Snake",
+  "Snake Classic",
+  "Fruit Ninja",
+  "Tetris",
+  "Tetris Classic",
+  "Pong",
+  "Pong Retro",
+] as const;
+
+// Normaliza "Tetris Classic" -> "Tetris", "Pong Retro" -> "Pong", etc.
+// para que la BD guarde siempre el mismo nombre por juego.
+const normalizeGameName = (name: string) =>
+  name.replace(/ Classic| Retro/g, "");
+
+const userNameSchema = z
+  .string()
+  .trim()
+  .min(1, "El nombre es obligatorio.")
+  .max(30, "El nombre no puede superar 30 caracteres.");
+
+const commentSchema = z.object({
+  user_name: userNameSchema,
+  game_name: z.enum(GAME_NAMES),
+  rating: z.coerce.number().int().min(1).max(5),
+  comment_text: z
+    .string()
+    .trim()
+    .min(1, "El comentario es obligatorio.")
+    .max(500, "El comentario no puede superar 500 caracteres."),
+});
+
+const scoreSchema = z.object({
+  user_name: userNameSchema,
+  game_name: z.enum(GAME_NAMES),
+  score: z.number().int().min(0).max(1_000_000),
+});
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
 
 export async function addComment(formData: FormData) {
-  const supabase = createServerActionClient();
-  const user_name = formData.get("userName") as string;
-  const game_name = formData.get("selectedGame") as string;
-  const rating = parseInt(formData.get("rating") as string);
-  const comment_text = formData.get("newComment") as string;
+  const parsed = commentSchema.safeParse({
+    user_name: formData.get("userName"),
+    game_name: formData.get("selectedGame"),
+    rating: formData.get("rating"),
+    comment_text: formData.get("newComment"),
+  });
 
-  if (!user_name || !game_name || !comment_text || isNaN(rating)) {
-    return { success: false, message: "Todos los campos son obligatorios." };
+  if (!parsed.success) {
+    return {
+      success: false,
+      message: parsed.error.issues[0]?.message ?? "Datos no válidos.",
+    };
   }
 
+  const supabase = createServerActionClient();
   const { data, error } = await supabase
     .from("comments")
-    .insert({ user_name, game_name, rating, comment_text })
+    .insert({
+      ...parsed.data,
+      game_name: normalizeGameName(parsed.data.game_name),
+    })
     .select();
 
   if (error) {
@@ -25,102 +83,96 @@ export async function addComment(formData: FormData) {
     return { success: false, message: "Error al publicar el comentario." };
   }
 
-  revalidatePath("/leaderboard"); // Revalida la página para mostrar el nuevo comentario
+  revalidatePath("/leaderboard");
   return {
     success: true,
     message: "Comentario publicado con éxito.",
-    comment: data[0],
+    comment: data[0] as Comment,
   };
 }
 
 export async function likeComment(commentId: string) {
-  const supabase = createServerActionClient();
-
-  // Obtener el número actual de likes para incrementarlo
-  const { data: currentLikesData, error: fetchError } = await supabase
-    .from("comments")
-    .select("likes")
-    .eq("id", commentId)
-    .single();
-
-  if (fetchError || !currentLikesData) {
-    console.error("Error al obtener likes actuales:", fetchError);
-    return { success: false, message: "Error al dar me gusta." };
+  const parsedId = z.string().uuid().safeParse(commentId);
+  if (!parsedId.success) {
+    return { success: false, message: "Identificador no válido." };
   }
 
-  const newLikes = currentLikesData.likes + 1;
+  const supabase = createServerActionClient();
 
-  const { data, error } = await supabase
-    .from("comments")
-    .update({ likes: newLikes })
-    .eq("id", commentId)
-    .select();
+  // Incremento atómico en la BD (función increment_likes, ver
+  // scripts/create-tables.sql). Evita la race condition de leer y reescribir.
+  const { error } = await supabase.rpc("increment_likes", {
+    comment_id: parsedId.data,
+  });
 
   if (error) {
     console.error("Error al dar like:", error);
     return { success: false, message: "Error al dar me gusta." };
   }
 
-  revalidatePath("/leaderboard"); // Revalida la página para actualizar los likes
+  revalidatePath("/leaderboard");
   return { success: true, message: "Me gusta añadido." };
 }
 
-// Función para obtener comentarios (puede ser llamada desde el cliente o servidor)
-export async function getComments() {
+export async function getComments(): Promise<Comment[]> {
   const supabase = createServerActionClient();
   const { data: comments, error } = await supabase
     .from("comments")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   if (error) {
     console.error("Error al obtener comentarios:", error);
     return [];
   }
-  return comments;
+  return comments as Comment[];
 }
 
-// NUEVA FUNCIÓN: Guardar puntuación
 export async function saveScore(
   userName: string,
   gameName: string,
   score: number
 ) {
-  const supabase = createServerActionClient();
+  const parsed = scoreSchema.safeParse({
+    user_name: userName,
+    game_name: gameName,
+    score,
+  });
 
-  if (!userName || !gameName || isNaN(score)) {
+  if (!parsed.success) {
     return {
       success: false,
-      message: "Nombre de usuario, juego y puntuación son obligatorios.",
+      message: parsed.error.issues[0]?.message ?? "Datos no válidos.",
     };
   }
 
-  const { data, error } = await supabase
-    .from("scores")
-    .insert({ user_name: userName, game_name: gameName, score: score })
-    .select();
+  const supabase = createServerActionClient();
+  const { error } = await supabase.from("scores").insert({
+    ...parsed.data,
+    game_name: normalizeGameName(parsed.data.game_name),
+  });
 
   if (error) {
     console.error("Error al guardar la puntuación:", error);
     return { success: false, message: "Error al guardar la puntuación." };
   }
 
-  revalidatePath("/leaderboard"); // Revalida la página para actualizar el ranking
+  revalidatePath("/leaderboard");
   return { success: true, message: "Puntuación guardada con éxito." };
 }
 
-// NUEVA FUNCIÓN: Obtener puntuaciones
-export async function getScores() {
+export async function getScores(): Promise<Score[]> {
   const supabase = createServerActionClient();
   const { data: scores, error } = await supabase
     .from("scores")
     .select("*")
-    .order("score", { ascending: false }) // Ordenar por puntuación de mayor a menor
-    .limit(100); // Limitar a los 100 mejores, por ejemplo
+    .order("score", { ascending: false })
+    .limit(100);
 
   if (error) {
     console.error("Error al obtener puntuaciones:", error);
     return [];
   }
-  return scores;
+  return scores as Score[];
 }
